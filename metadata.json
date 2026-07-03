@@ -1,0 +1,6 @@
+{
+  "name": "CareerPath AI",
+  "description": "Professional Job Board with AI-Powered Job Matching, Resume Review, and Custom Cover Letter Generation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

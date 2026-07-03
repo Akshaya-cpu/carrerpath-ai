@@ -1,0 +1,449 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg-main: #070B17;
+  --sidebar: #0E1628;
+  --card: #162033;
+  --card-hover: #1F2C45;
+  --primary: #6366F1;
+  --primary-hover: #7C83FF;
+  --text: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --border: #293548;
+  --success: #00D48A;
+  --warning: #F5B041;
+  --danger: #EF4444;
+  --purple: #8B5CF6;
+  --blue: #3B82F6;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,.15);
+  --shadow-md: 0 10px 30px rgba(0,0,0,.25);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,.35);
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Sora", sans-serif;
+  --font-number: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Color Palette mappings in Tailwind v4 style */
+  --color-bg-main: var(--bg-main);
+  --color-sidebar: var(--sidebar);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-primary-custom: var(--primary);
+  --color-primary-hover-custom: var(--primary-hover);
+  --color-text-main: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-custom: var(--border);
+  --color-success-custom: var(--success);
+  --color-warning-custom: var(--warning);
+  --color-danger-custom: var(--danger);
+  --color-purple-custom: var(--purple);
+  --color-blue-custom: var(--blue);
+
+  /* Border Radii overrides or expansions */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  /* Shadows override or expansions */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  /* Custom ease transition in Tailwind v4 */
+  --animate-custom-ease: all .25s ease;
+  --animate-custom-bezier: all .25s cubic-bezier(.4,0,.2,1);
+}
+
+* {
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* Force premium typography hierarchy to override any universal rules */
+.font-sora, h1, h2, h3, h4, h5, h6, .heading-font {
+  font-family: 'Sora', sans-serif !important;
+  letter-spacing: -0.02em;
+}
+
+.font-space, .number-font, .stat-val, .percentage, .salary-tag {
+  font-family: 'Space Grotesk', sans-serif !important;
+}
+
+.font-mono, pre, code, .mono-font {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+/* Global Transition rule for elite feel */
+button, select, input, textarea, .glass-card, .sidebar, .tab-button, .tag-pill, .job-card-link {
+  transition: all 0.25s ease !important;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom scrollbar hiding */
+.custom-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.custom-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Typography System Helpers */
+.typo-dashboard-title {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 44px;
+  letter-spacing: -0.03em;
+  color: #FFFFFF;
+}
+
+.typo-section-heading {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 36px;
+  color: #FFFFFF;
+}
+
+.typo-card-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 30px;
+  color: #FFFFFF;
+}
+
+.typo-job-title {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 36px;
+  color: #FFFFFF;
+}
+
+.typo-company-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #CBD5E1;
+}
+
+.typo-salary {
+  font-size: 32px;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.typo-match-percentage {
+  font-size: 18px;
+  font-weight: 700;
+  color: #00E5A8;
+}
+
+.typo-navigation {
+  font-size: 18px;
+  font-weight: 600;
+  color: #CBD5E1;
+}
+
+.typo-button-text {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.typo-badge {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.typo-body-text {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 26px;
+  color: #94A3B8;
+}
+
+.typo-small-description {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  color: #94A3B8;
+}
+
+.typo-labels {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  color: #64748B;
+  text-transform: uppercase;
+}
+
+.typo-input {
+  font-size: 16px;
+  font-weight: 500;
+  color: #F8FAFC;
+}
+
+.typo-placeholder::placeholder {
+  font-size: 15px;
+  font-weight: 400;
+  color: #64748B;
+}
+
+/* Transitions classes as requested */
+.transition-ease {
+  transition: all .25s ease;
+}
+
+.transition-bezier {
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+}
+
+/* Custom glass utilities matching the Frosted Glass design specs with user colors */
+.mesh-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -10;
+  background: 
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 45%),
+    radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.05), transparent 45%);
+  background-color: var(--bg-main);
+}
+
+.glass-card {
+  background: rgba(22, 32, 51, 0.82) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35) !important;
+  border-radius: 20px;
+  transition: all .25s cubic-bezier(.4,0,.2,1) !important;
+}
+
+.glass-card-hover {
+  transition: all .25s cubic-bezier(.4,0,.2,1) !important;
+}
+.glass-card-hover:hover {
+  background: rgba(31, 44, 69, 0.88) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 25px 70px rgba(0,0,0,0.45) !important;
+  transform: translateY(-4px) !important;
+}
+
+.glass-input {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.02) !important;
+  transition: all .25s ease !important;
+}
+.glass-input:focus {
+  border-color: #6366F1 !important;
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.35) !important;
+  outline: none !important;
+}
+
+.text-dim {
+  color: var(--text-secondary);
+}
+
+.text-mute {
+  color: var(--text-muted);
+}
+
+.progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--purple));
+}
+
+.btn-gradient {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  height: 44px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 15px;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+  box-shadow: 0 4px 15px rgba(99,102,241,0.25);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+.btn-gradient:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px rgba(99,102,241,0.35);
+  opacity: 0.95;
+}
+.btn-gradient:active {
+  transform: translateY(1px);
+}
+
+/* Chat floating pulse animation */
+@keyframes chat-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+    transform: scale(1);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(99, 102, 241, 0);
+    transform: scale(1.03);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+    transform: scale(1);
+  }
+}
+.chat-btn-pulse {
+  animation: chat-pulse 3s infinite !important;
+}
+
+/* Page switch translation animations */
+.page-enter {
+  animation: pageFadeSlide 250ms cubic-bezier(0.25, 1, 0.5, 1) forwards !important;
+}
+
+@keyframes pageFadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* D3 Trend line animation */
+@keyframes d3-pulse-dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+.trend-line-spline {
+  animation: d3-pulse-dash 3s linear infinite;
+}
+
+/* 9. Light Mode Theme Definitions and Component Tweaks */
+.light {
+  --bg-main: #f8fafc;
+  --sidebar: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f1f5f9;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --text: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --purple: #7c3aed;
+  --blue: #2563eb;
+}
+
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04) !important;
+}
+
+.light .glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(79, 70, 229, 0.35) !important;
+  box-shadow: 0 20px 50px rgba(79, 70, 229, 0.08) !important;
+}
+
+.light .glass-input {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #0f172a !important;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.01) !important;
+}
+
+.light .glass-input:focus {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 15px rgba(79, 70, 229, 0.15) !important;
+}
+
+.light .typo-dashboard-title,
+.light .typo-section-heading,
+.light .typo-card-title,
+.light .typo-job-title,
+.light .typo-salary,
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6, .light .text-white {
+  color: #0f172a !important;
+}
+
+.light .typo-company-name, .light .text-white\/80, .light .text-indigo-200, .light .text-white\/70 {
+  color: #475569 !important;
+}
+
+.light .text-white\/60, .light .text-white\/50, .light .text-white\/55, .light .text-white\/40 {
+  color: #64748b !important;
+}
+
+.light .text-white\/30, .light .text-white\/20, .light .text-white\/25, .light .text-white\/10 {
+  color: #94a3b8 !important;
+}
+
+.light .border-white\/10, .light .border-white\/5, .light .border-white\/15, .light .border-white\/20 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.light .bg-slate-950, .light .bg-slate-900, .light .bg-slate-950\/40, .light .bg-slate-900\/40, .light .bg-slate-950\/25, .light .bg-slate-900\/30, .light .bg-slate-900\/20, .light .bg-indigo-950\/20, .light .bg-indigo-950\/5 {
+  background-color: #f1f5f9 !important;
+}
+
+.light .bg-white\/5, .light .bg-white\/10, .light .bg-white\/15, .light .bg-white\/20 {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+.light .bg-slate-950\/30, .light .bg-slate-950\/50, .light .bg-indigo-950\/50 {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+.light .mesh-bg {
+  background: 
+    radial-gradient(circle at top right, rgba(79, 70, 229, 0.05), transparent 45%),
+    radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.03), transparent 45%);
+  background-color: #f8fafc;
+}
+
+
+
+
