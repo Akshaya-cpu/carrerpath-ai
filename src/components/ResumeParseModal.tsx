@@ -91,11 +91,11 @@ export default function ResumeParseModal({
       clearInterval(progress);
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'The server returned an error while processing the document.');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'The server returned an error while processing the document.');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       if (!data.isValidResume) {
         throw new Error('Our AI filters identified this document as unrelated attachment noise (e.g. bills, receipts, tickets). Please upload a valid professional resume.');
       }

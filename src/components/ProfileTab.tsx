@@ -11,6 +11,26 @@ import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import { sanitizeUserProfile } from '../utils/resumeParser';
 
+async function parseApiResponse(response: Response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(text.trim().slice(0, 300) || 'Invalid JSON response from server.');
+  }
+}
+
+async function parseErrorResponse(response: Response) {
+  const text = await response.text();
+  try {
+    const data = JSON.parse(text);
+    return data?.error || data?.message || text;
+  } catch {
+    return text || 'Unknown server error.';
+  }
+}
+
 export interface CareerRoadmapStep {
   title: string;
   description: string;
@@ -294,10 +314,11 @@ export default function ProfileTab({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to optimize resume details.');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to optimize resume details.');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       const optimizedProfile = data.optimizedProfile;
       if (!optimizedProfile) {
         throw new Error('Empty optimized data returned from Gemini.');
@@ -468,9 +489,10 @@ export default function ProfileTab({
         })
       });
       if (!response.ok) {
-        throw new Error('Server error occurred during LinkedIn schema generation.');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Server error occurred during LinkedIn schema generation.');
       }
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       setLinkedInSchema(data);
     } catch (err: any) {
       console.error(err);
@@ -534,11 +556,11 @@ export default function ProfileTab({
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to send daily digest email.');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to send daily digest email.');
       }
 
-      const result = await response.json();
+      const result = await parseApiResponse(response);
 
       const newLog = {
         id: `mail_log_${Date.now()}`,
@@ -710,7 +732,7 @@ export default function ProfileTab({
             let parsedCertifications = [];
 
             if (response.ok) {
-              const data = await response.json();
+              const data = await parseApiResponse(response);
               if (data.title) parsedTitle = data.title;
               if (data.skills && data.skills.length > 0) parsedSkills = data.skills;
               parsedEducation = data.education || [];
@@ -798,11 +820,11 @@ export default function ProfileTab({
             });
 
             if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || 'Failed to analyze resume file.');
+              const errorText = await parseErrorResponse(response);
+              throw new Error(errorText || 'Failed to analyze resume file.');
             }
 
-            const data = await response.json();
+            const data = await parseApiResponse(response);
             
             const parsedName = data.name && data.name !== 'Candidate' ? data.name : profile.name;
             const parsedTitle = data.title || profile.title;
@@ -905,7 +927,7 @@ export default function ProfileTab({
       let parsedCertifications = [];
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await parseApiResponse(response);
         if (data.title) parsedTitle = data.title;
         if (data.skills && data.skills.length > 0) parsedSkills = data.skills;
         parsedEducation = data.education || [];
@@ -1206,11 +1228,11 @@ export default function ProfileTab({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to analyze skill gaps');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to analyze skill gaps');
       }
 
-      const data: SkillGapAnalysis = await response.json();
+      const data: SkillGapAnalysis = await parseApiResponse(response);
       setGapAnalysis(data);
       localStorage.setItem(`career_path_ai_gap_analysis_${profile.email}`, JSON.stringify(data));
     } catch (err: any) {
@@ -1256,11 +1278,11 @@ export default function ProfileTab({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate career roadmap');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to generate career roadmap');
       }
 
-      const data: CareerRoadmap = await response.json();
+      const data: CareerRoadmap = await parseApiResponse(response);
       setRoadmap(data);
       localStorage.setItem(`career_path_ai_roadmap_${profile.email}`, JSON.stringify(data));
     } catch (err: any) {
@@ -1301,11 +1323,11 @@ export default function ProfileTab({
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to analyze resume text');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to analyze resume text');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       
       // Auto-populate the input states
       const parsedName = data.name && data.name !== 'Candidate' ? data.name : profile.name;
@@ -1530,11 +1552,11 @@ export default function ProfileTab({
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Server error occurred during audit');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Server error occurred during audit');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       setAuditResult(data);
     } catch (err: any) {
       console.error(err);

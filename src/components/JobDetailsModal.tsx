@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job, UserProfile, JobApplication } from '../types';
+import { parseApiResponse, parseErrorResponse } from '../utils/apiResponse';
 
 interface InterviewQuestion {
   id: string;
@@ -215,10 +216,11 @@ export default function JobDetailsModal({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to analyze job safety.');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to analyze job safety.');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       setScamResult(data);
       setShowScamPanel(true);
     } catch (err: any) {
@@ -245,9 +247,10 @@ export default function JobDetailsModal({
         })
       });
       if (!response.ok) {
-        throw new Error('Failed to load interview questions');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to load interview questions');
       }
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       setInterviewQuestions(data.questions || []);
     } catch (err: any) {
       console.error(err);
@@ -288,10 +291,10 @@ export default function JobDetailsModal({
         })
       });
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to analyze your answer.');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to analyze your answer.');
       }
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       setFeedbackResult(data);
     } catch (err: any) {
       console.error(err);
@@ -320,11 +323,11 @@ export default function JobDetailsModal({
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to generate cover letter');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to generate cover letter');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       setCoverLetter(data.coverLetter);
     } catch (err: any) {
       console.error(err);

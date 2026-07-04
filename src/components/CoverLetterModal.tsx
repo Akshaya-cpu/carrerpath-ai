@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Job, UserProfile, JobApplication } from '../types';
+import { parseApiResponse, parseErrorResponse } from '../utils/apiResponse';
 
 interface CoverLetterModalProps {
   onClose: () => void;
@@ -104,11 +105,11 @@ export default function CoverLetterModal({
       clearInterval(progress);
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'The server returned an error during cover letter drafting.');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'The server returned an error during cover letter drafting.');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       if (!data.coverLetter) {
         throw new Error('Gemini successfully processed the request but returned an empty letter body.');
       }

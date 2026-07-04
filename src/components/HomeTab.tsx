@@ -7,6 +7,7 @@ import {
 import { Job, UserProfile } from '../types';
 import { calculateMatchScore, getScoreStyle, getMatchedAndMissingSkills } from '../utils/matchScore';
 import { sanitizeUserProfile, cleanTechnicalSkills, cleanProfessionalSummary, extractProfessionalTitle } from '../utils/resumeParser';
+import { parseApiResponse, parseErrorResponse } from '../utils/apiResponse';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface HomeTabProps {
@@ -369,7 +370,7 @@ export default function HomeTab({
             let parsedName = profile.name;
 
             if (response.ok) {
-              const data = await response.json();
+              const data = await parseApiResponse(response);
               if (data.isValidResume === false) {
                 setResumeError('Incorrect file, please upload new file.');
                 clearInterval(stepInterval);
@@ -470,10 +471,11 @@ export default function HomeTab({
             }, 25000);
 
             if (!response.ok) {
-              throw new Error('API responded with error. Falling back to local parse.');
+              const errorText = await parseErrorResponse(response);
+              throw new Error(errorText || 'API responded with error. Falling back to local parse.');
             }
 
-            const data = await response.json();
+            const data = await parseApiResponse(response);
             if (data.isValidResume === false) {
               setResumeError('Incorrect file, please upload new file.');
               clearInterval(stepInterval);
@@ -747,75 +749,75 @@ export default function HomeTab({
           </div>
 
           {/* Progress Timeline for Real-Time Analysis */}
-          <div className="grid grid-cols-3 gap-2 mt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
             {/* Stage 1: Text Extraction */}
-            <div className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-300 ${
+            <div className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 text-center min-h-[110px] min-w-0 ${
               !isUploadingResume
-                ? 'bg-white/[0.02] border-white/5 opacity-50'
+                ? 'bg-white/[0.02] border-white/5 opacity-60'
                 : uploadStep <= 2
                 ? 'bg-indigo-500/10 border-indigo-500/25 text-indigo-200'
                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200'
             }`}>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Stage 1</span>
                 {isUploadingResume && uploadStep > 2 ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <Check className="w-4 h-4 text-emerald-400" />
                 ) : isUploadingResume && uploadStep <= 2 ? (
-                  <RefreshCw className="w-3 h-3 text-indigo-400 animate-spin" />
+                  <RefreshCw className="w-3.5 h-3.5 text-indigo-400 animate-spin" />
                 ) : (
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                  <div className="w-2 h-2 rounded-full bg-white/20" />
                 )}
               </div>
-              <span className="text-xs font-bold truncate">Extracting text</span>
-              <span className="text-[9px] text-white/30 truncate mt-0.5">PDF Plaintext Parse</span>
+              <span className="text-sm font-bold text-white break-words whitespace-normal">Extracting text</span>
+              <span className="text-[10px] text-white/40 mt-1 break-words whitespace-normal">PDF Plaintext Parse</span>
             </div>
 
             {/* Stage 2: Skill Analysis */}
-            <div className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-300 ${
+            <div className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 text-center min-h-[110px] min-w-0 ${
               !isUploadingResume
-                ? 'bg-white/[0.02] border-white/5 opacity-50'
+                ? 'bg-white/[0.02] border-white/5 opacity-60'
                 : uploadStep < 3
                 ? 'bg-white/[0.02] border-white/5 opacity-40'
                 : uploadStep <= 5
                 ? 'bg-indigo-500/10 border-indigo-500/25 text-indigo-200'
                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200'
             }`}>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Stage 2</span>
                 {isUploadingResume && uploadStep > 5 ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <Check className="w-4 h-4 text-emerald-400" />
                 ) : isUploadingResume && uploadStep >= 3 && uploadStep <= 5 ? (
-                  <RefreshCw className="w-3 h-3 text-indigo-400 animate-spin" />
+                  <RefreshCw className="w-3.5 h-3.5 text-indigo-400 animate-spin" />
                 ) : (
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                  <div className="w-2 h-2 rounded-full bg-white/20" />
                 )}
               </div>
-              <span className="text-xs font-bold truncate">Analyzing skills</span>
-              <span className="text-[9px] text-white/30 truncate mt-0.5">Gemini Taxonomy</span>
+              <span className="text-sm font-bold text-white break-words whitespace-normal">Analyzing skills</span>
+              <span className="text-[10px] text-white/40 mt-1 break-words whitespace-normal">Gemini Taxonomy</span>
             </div>
 
             {/* Stage 3: ATS Score Map */}
-            <div className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-300 ${
+            <div className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 text-center min-h-[110px] min-w-0 ${
               !isUploadingResume
-                ? 'bg-white/[0.02] border-white/5 opacity-50'
+                ? 'bg-white/[0.02] border-white/5 opacity-60'
                 : uploadStep < 6
                 ? 'bg-white/[0.02] border-white/5 opacity-40'
                 : uploadStep <= 8
                 ? 'bg-indigo-500/10 border-indigo-500/25 text-indigo-200 animate-pulse'
                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-200'
             }`}>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between w-full mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Stage 3</span>
                 {isUploadingResume && uploadStep > 8 ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <Check className="w-4 h-4 text-emerald-400" />
                 ) : isUploadingResume && uploadStep >= 6 ? (
-                  <RefreshCw className="w-3 h-3 text-indigo-400 animate-spin" />
+                  <RefreshCw className="w-3.5 h-3.5 text-indigo-400 animate-spin" />
                 ) : (
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                  <div className="w-2 h-2 rounded-full bg-white/20" />
                 )}
               </div>
-              <span className="text-xs font-bold truncate">ATS Score Match</span>
-              <span className="text-[9px] text-white/30 truncate mt-0.5">Role Calibration</span>
+              <span className="text-sm font-bold text-white break-words whitespace-normal">ATS Score Match</span>
+              <span className="text-[10px] text-white/40 mt-1 break-words whitespace-normal">Role Calibration</span>
             </div>
           </div>
         </div>

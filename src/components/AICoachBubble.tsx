@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Sparkles, X, Send, RefreshCw, Bot, User, ArrowRight, Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
+import { parseApiResponse, parseErrorResponse } from '../utils/apiResponse';
 
 interface Message {
   id: string;
@@ -129,10 +130,11 @@ export default function AICoachBubble({ profile }: AICoachBubbleProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to reach AI Coach.');
+        const errorText = await parseErrorResponse(response);
+        throw new Error(errorText || 'Failed to reach AI Coach.');
       }
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       const modelMsg: Message = {
         id: `msg-${Date.now() + 1}`,
         role: 'model',
