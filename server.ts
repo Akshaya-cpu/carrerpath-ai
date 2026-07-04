@@ -11,12 +11,12 @@ import mammoth from 'mammoth';
 import { mockJobs } from './src/data/jobs';
 import { TECHNICAL_SKILLS_KEYWORDS, classifyResumeExperience } from './src/utils/resumeParser';
 // @ts-ignore
-import * as pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 
 dotenv.config();
 
 // Initialize Express
-const app = express();
+export const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
@@ -24,7 +24,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use('/api/auth', authRouter);
 app.use('/api', jobsRouter);
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 // Lazy initialize Gemini client to prevent crashing on boot if key is missing
 let aiClient: GoogleGenAI | null = null;
@@ -2269,4 +2269,6 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
