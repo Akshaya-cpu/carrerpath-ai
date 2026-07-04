@@ -412,7 +412,7 @@ export default function SearchTab({
     const steps = [
       'Reading your profile & skillset...',
       'Analyzing available job descriptions...',
-      'Calculating match scores with Gemini AI...',
+      'Calculating match scores...',
       'Synthesizing recommendations...'
     ];
     setLoadingStep(0);
@@ -420,55 +420,12 @@ export default function SearchTab({
       setLoadingStep((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
     }, 1200);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, 2500); // 2.5-second ultra-responsive threshold
-
     try {
-      const response = await fetch('/api/gemini/job-matcher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          title: profile.title,
-          skills: profile.skills,
-          resumeText: profile.resumeText,
-          jobs: jobs
-        })
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let errorMsg = 'Server error occurred during matching';
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          try {
-            const errData = await response.json();
-            errorMsg = errData.error || errorMsg;
-          } catch (e) {
-            // Ignore parse errors on bad JSON
-          }
-        }
-        throw new Error(errorMsg);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Received non-JSON content. Falling back to local smart match engine.');
-      }
-
-      const data = await response.json();
-      setMatchResults(data.matches || []);
-    } catch (err: any) {
-      console.warn('Backend match API is slow or offline. Switching to high-speed local smart match engine:', err.message || err);
-      
-      // Calculate high-quality compatibility ratings locally in real-time
+      // Use a local smart match engine so this feature works without Gemini backend connectivity.
       const localMatches: JobMatchResult[] = jobs.map(job => {
         const score = calculateMatchScore(job, profile?.skills || [], profile?.title, profile?.resumeText);
         const { matched, missing } = getMatchedAndMissingSkills(job, profile?.skills || []);
-        
+
         let explanation = '';
         if (matched.length > 0) {
           explanation = `Excellent fit! Your skills in ${matched.slice(0, 3).join(', ')} match the core requirements for this ${job.title} role.`;
@@ -478,9 +435,9 @@ export default function SearchTab({
             explanation += ` You possess 100% of the core competencies for this opening.`;
           }
         } else {
-          explanation = `Your background as a ${profile?.title || 'Specialist'} provides a strong foundation. Pick up ${missing.slice(0, 3).join(', ')} to boost your alignment with this position.`;
+          explanation = `Your background as a ${profile?.title || 'specialist'} provides a strong foundation. Pick up ${missing.slice(0, 3).join(', ')} to boost your alignment with this position.`;
         }
-        
+
         return {
           jobId: job.id,
           matchScore: score,
@@ -489,18 +446,22 @@ export default function SearchTab({
       });
 
       setMatchResults(localMatches);
+    } catch (err: any) {
+      console.warn('Local smart match failed unexpectedly:', err.message || err);
+      setErrorMessage('Unable to calculate match results at this time. Please try again.');
     } finally {
-      clearTimeout(timeoutId);
       clearInterval(interval);
       setIsMatching(false);
     }
   };
 
-  const textFilteredJobs = jobs.filter(job => 
+  const textFilteredJobs = query.trim() ? jobs.filter(job => 
     job.title.toLowerCase().includes(query.toLowerCase()) ||
     job.company.toLowerCase().includes(query.toLowerCase()) ||
-    job.location.toLowerCase().includes(query.toLowerCase())
-  );
+    job.location.toLowerCase().includes(query.toLowerCase()) ||
+    job.description.toLowerCase().includes(query.toLowerCase()) ||
+    job.requirements.some((req: string) => req.toLowerCase().includes(query.toLowerCase()))
+  ) : [];
 
   const getMatchData = (jobId: string) => {
     return matchResults.find(r => r.jobId === jobId);
@@ -759,19 +720,19 @@ export default function SearchTab({
 
         {/* Legend / Metrics Board */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-          <div className="p-2.5 bg-indigo-500/5 border border-indigo-500/10 rounded-xl text-center">
+          <div className="p-2.5 bg-indigo-500/5 border border-indigo-500/10 rounded-xl flex flex-col items-center justify-center">
             <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Listed Rate</span>
             <span className="text-xs font-mono font-bold text-indigo-300 mt-1 block">${(currentJobAverage / 1000).toFixed(0)}k</span>
           </div>
-          <div className="p-2.5 bg-blue-500/5 border border-blue-500/10 rounded-xl text-center">
+          <div className="p-2.5 bg-blue-500/5 border border-blue-500/10 rounded-xl flex flex-col items-center justify-center">
             <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Regional Avg</span>
             <span className="text-xs font-mono font-bold text-blue-300 mt-1 block">${(regionalAvg / 1000).toFixed(0)}k</span>
           </div>
-          <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-center">
+          <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex flex-col items-center justify-center">
             <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">AI Premium Ceiling</span>
             <span className="text-xs font-mono font-bold text-emerald-300 mt-1 block">${(aiCeiling / 1000).toFixed(0)}k</span>
           </div>
-          <div className="p-2.5 bg-amber-500/5 border border-amber-500/10 rounded-xl text-center">
+          <div className="p-2.5 bg-amber-500/5 border border-amber-500/10 rounded-xl flex flex-col items-center justify-center">
             <span className="text-[9px] font-bold text-white/40 uppercase tracking-widest block">Market Floor</span>
             <span className="text-xs font-mono font-bold text-amber-300 mt-1 block">${(floorRate / 1000).toFixed(0)}k</span>
           </div>
@@ -963,3 +924,4 @@ export default function SearchTab({
     </div>
   );
 }
+

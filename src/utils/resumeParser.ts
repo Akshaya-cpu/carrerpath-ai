@@ -254,6 +254,8 @@ export function extractProfessionalTitle(title: string = '', rawResumeText: stri
     return 'Frontend Engineer';
   } else if (nameLower.includes('backend') || textLower.includes('backend developer') || textLower.includes('backend engineer')) {
     return 'Backend Engineer';
+  } else if (nameLower.includes('hardware') || textLower.includes('hardware engineer') || textLower.includes('embedded') || textLower.includes('firmware') || textLower.includes('electrical engineer')) {
+    return 'Hardware / Embedded Engineer';
   } else if (nameLower.includes('pm') || nameLower.includes('product') || textLower.includes('product manager')) {
     return 'Product Manager';
   } else if (textLower.includes('full stack developer') || textLower.includes('fullstack') || textLower.includes('software engineer') || textLower.includes('software developer')) {
@@ -262,6 +264,221 @@ export function extractProfessionalTitle(title: string = '', rawResumeText: stri
 
   // Fallback to general specialist
   return 'Technical Specialist';
+}
+
+const MONTH_TO_NUMBER: { [key: string]: number } = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12
+};
+
+export interface ResumeExperienceClassification {
+  employmentType: 'Fresher' | 'Experienced';
+  experienceYears: number;
+  experienceMonths: number;
+  workExperience: Array<{ role: string; company: string; duration: string; description: string }>;
+  internships: Array<{ role: string; company: string; duration: string; description: string }>;
+}
+
+function estimateYearsFromDuration(duration: string): number {
+  if (!duration) return 0;
+  const normalized = duration.toLowerCase().replace(/–/g, '-').replace(/\band\b/g, '-').replace(/\s+/g, ' ').trim();
+  const currentYear = new Date().getFullYear();
+
+  const monthRange = normalized.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s*(\d{4})\s*[-–]\s*(present|now|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s*(\d{4}))/i);
+  if (monthRange) {
+    const startMonth = MONTH_TO_NUMBER[monthRange[1].slice(0, 3)] || 1;
+    const startYear = parseInt(monthRange[2], 10);
+    let endMonth = 12;
+    let endYear = currentYear;
+    if (monthRange[3] && monthRange[3].toLowerCase() !== 'present' && monthRange[3].toLowerCase() !== 'now') {
+      endMonth = MONTH_TO_NUMBER[monthRange[4].slice(0, 3)] || 12;
+      endYear = parseInt(monthRange[5], 10);
+    }
+    const years = (endYear - startYear) + ((endMonth - startMonth) / 12);
+    return Math.max(0, parseFloat(years.toFixed(2)));
+  }
+
+  const yearRange = normalized.match(/(\d{4})\s*[-–]\s*(present|now|\d{4})/i);
+  if (yearRange) {
+    const startYear = parseInt(yearRange[1], 10);
+    const endYear = yearRange[2].toLowerCase().startsWith('present') || yearRange[2].toLowerCase().startsWith('now')
+      ? currentYear
+      : parseInt(yearRange[2], 10);
+    return Math.max(0, endYear - startYear);
+  }
+
+  const yearsMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:\+)?\s*(?:years|yrs|year|yr)\b/);
+  if (yearsMatch) {
+    return parseFloat(yearsMatch[1]);
+  }
+
+  const monthsMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(?:months|mos|month|mo)\b/);
+  if (monthsMatch) {
+    return parseFloat(monthsMatch[1]) / 12;
+  }
+
+  return 0;
+}
+
+function isProfessionalExperienceItem(experienceItem: any): boolean {
+  if (!experienceItem) return false;
+  const isObj = typeof experienceItem === 'object' && experienceItem !== null;
+  const role = (isObj ? experienceItem.role : experienceItem).toString().toLowerCase();
+  const company = isObj && experienceItem.company ? experienceItem.company.toString().toLowerCase() : '';
+  const description = isObj && experienceItem.description ? experienceItem.description.toString().toLowerCase() : '';
+  const duration = isObj && experienceItem.duration ? experienceItem.duration.toString().toLowerCase() : '';
+
+  const internshipAndProjectTerms = [
+    'intern', 'internship', 'trainee', 'co-op', 'apprentice', 'volunteer', 'student',
+    'training', 'bootcamp', 'course', 'coursework', 'academic', 'research', 'project',
+    'capstone', 'hackathon', 'portfolio', 'university', 'college', 'school', 'academy',
+    'campus', 'summer', 'part-time', 'freelance'
+  ];
+
+  if (internshipAndProjectTerms.some(term => role.includes(term) || company.includes(term) || description.includes(term) || duration.includes(term))) {
+    return false;
+  }
+
+  if (/\b(university|college|institute|school|academy|bootcamp|training|coursework|internship|student|research|academic)\b/.test(company)) {
+    return false;
+  }
+
+  return true;
+}
+
+function toExperienceEntry(item: any): { role: string; company: string; duration: string; description: string } | null {
+  if (!item) return null;
+  if (typeof item === 'object' && item !== null) {
+    return {
+      role: String(item.role || ''),
+      company: String(item.company || ''),
+      duration: String(item.duration || ''),
+      description: String(item.description || '')
+    };
+  }
+
+  return { role: String(item), company: '', duration: '', description: '' };
+}
+
+function looksLikeInternship(entry: { role: string; company: string; duration: string; description: string }): boolean {
+  const text = `${entry.role} ${entry.company} ${entry.duration} ${entry.description}`.toLowerCase();
+  const internshipTerms = [
+    'intern', 'internship', 'trainee', 'co-op', 'apprentice', 'training', 'bootcamp', 'course', 'coursework',
+    'academic project', 'capstone', 'college project', 'final year project', 'project', 'hackathon', 'summer', 'volunteer'
+  ];
+
+  return internshipTerms.some(term => text.includes(term));
+}
+
+function extractDurationFromText(text: string): string {
+  const durationPatterns = [
+    /(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s*\d{4}\s*[-–]\s*(?:present|now|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.?\s*\d{4}\b))/i,
+    /(\b\d{4}\s*[-–]\s*(?:present|now|\d{4})\b)/i,
+    /(\b\d+(?:\.\d+)?\s*(?:years|yrs|year|yr|months|mos|month|mo)\b)/i
+  ];
+
+  for (const pattern of durationPatterns) {
+    const match = text.match(pattern);
+    if (match) return match[0];
+  }
+
+  return '';
+}
+
+function parseDurationToMonths(duration: string): number {
+  if (!duration) return 0;
+  const normalized = duration.toLowerCase().replace(/–/g, '-').replace(/\band\b/g, '-').replace(/\s+/g, ' ').trim();
+
+  const monthRange = normalized.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.??\s*(\d{4})\s*[-–]\s*(present|now|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\.??\s*(\d{4}))/i);
+  if (monthRange) {
+    const startMonth = MONTH_TO_NUMBER[monthRange[1].slice(0, 3)] || 1;
+    const startYear = parseInt(monthRange[2], 10);
+    const currentDate = new Date();
+    let endMonth = currentDate.getMonth() + 1;
+    let endYear = currentDate.getFullYear();
+    if (monthRange[3] && monthRange[3].toLowerCase() !== 'present' && monthRange[3].toLowerCase() !== 'now') {
+      endMonth = MONTH_TO_NUMBER[monthRange[4].slice(0, 3)] || 12;
+      endYear = parseInt(monthRange[5], 10);
+    }
+    const months = (endYear - startYear) * 12 + (endMonth - startMonth);
+    return Math.max(0, months);
+  }
+
+  const yearRange = normalized.match(/(\d{4})\s*[-–]\s*(present|now|\d{4})/i);
+  if (yearRange) {
+    const startYear = parseInt(yearRange[1], 10);
+    const endYear = yearRange[2].toLowerCase().startsWith('present') || yearRange[2].toLowerCase().startsWith('now')
+      ? new Date().getFullYear()
+      : parseInt(yearRange[2], 10);
+    return Math.max(0, (endYear - startYear) * 12);
+  }
+
+  const explicitYears = normalized.match(/(\d+(?:\.\d+)?)\s*(?:\+)?\s*(?:years|yrs|year|yr)\b/);
+  if (explicitYears) {
+    return Math.round(parseFloat(explicitYears[1]) * 12);
+  }
+
+  const explicitMonths = normalized.match(/(\d+(?:\.\d+)?)\s*(?:months|mos|month|mo)\b/);
+  if (explicitMonths) {
+    return Math.round(parseFloat(explicitMonths[1]));
+  }
+
+  return Math.round(estimateYearsFromDuration(duration) * 12);
+}
+
+export function classifyResumeExperience(rawText: string = '', experienceList: any[] = []): ResumeExperienceClassification {
+  const entries = (Array.isArray(experienceList) ? experienceList : [])
+    .map(toExperienceEntry)
+    .filter((entry): entry is { role: string; company: string; duration: string; description: string } => Boolean(entry));
+
+  const rawTextLines = (rawText || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .filter(line => /(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b|\b(?:20|19)\d{2}\b|present|now|\b(?:years|yrs|year|yr|months|mos|month|mo)\b|\binternship\b|\btraining\b|\bintern\b)/i.test(line));
+
+  const textEntries = rawTextLines.map(line => ({
+    role: line,
+    company: '',
+    duration: extractDurationFromText(line),
+    description: ''
+  }));
+
+  const allEntries = [...entries, ...textEntries];
+  const fullTimeEntries = allEntries.filter(entry => isProfessionalExperienceItem(entry) && !looksLikeInternship(entry));
+  const internshipEntries = allEntries.filter(entry => looksLikeInternship(entry));
+  const totalMonths = fullTimeEntries.reduce((sum, entry) => sum + parseDurationToMonths(entry.duration), 0);
+  const experienceYears = Math.floor(totalMonths / 12);
+  const experienceMonths = totalMonths % 12;
+
+  return {
+    employmentType: fullTimeEntries.length > 0 ? 'Experienced' : 'Fresher',
+    experienceYears,
+    experienceMonths,
+    workExperience: fullTimeEntries,
+    internships: internshipEntries
+  };
+}
+
+export function normalizeExperienceLevel(experienceLevel?: string, rawText: string = '', experienceList: any[] = []): 'Fresher' | 'Mid' | 'Senior' {
+  const level = experienceLevel?.trim().toLowerCase() || '';
+  const fresherPattern = /\b(?:fresher|entry[\s-]*level|junior|graduate|recent graduate|new graduate|student|intern|internship|trainee|co-op|b\.?tech|bachelor|bsc|b\.sc|mca|m\.ca|m\.tech|msc|m\.sc|final year|final-year|0(?:\.\d+)?\s*(?:years|yrs|year|yr)|1(?:\.\d+)?\s*(?:years|yrs|year|yr))\b/i;
+  const seniorPattern = /\b(?:senior|sr\.?|lead|principal|staff|architect|manager|director|vp|head|experienced|seasoned|[5-9]\+?\s*(?:years|yrs|year|yr)|10\+|8\+)\b/i;
+
+  if (fresherPattern.test(level) && !seniorPattern.test(level)) return 'Fresher';
+  if (seniorPattern.test(level) && !fresherPattern.test(level)) return 'Senior';
+
+  const text = rawText.toLowerCase();
+  const isFresherText = fresherPattern.test(text);
+  const isSeniorText = seniorPattern.test(text);
+  if (isFresherText && !isSeniorText) return 'Fresher';
+  if (isSeniorText && !isFresherText) return 'Senior';
+
+  const classification = classifyResumeExperience(rawText, experienceList);
+  if (classification.employmentType === 'Fresher') return 'Fresher';
+  const totalYears = classification.experienceYears + classification.experienceMonths / 12;
+  if (totalYears >= 5) return 'Senior';
+  return 'Mid';
 }
 
 /**
@@ -279,34 +496,9 @@ export function sanitizeUserProfile(profile: UserProfile, rawText: string, fileN
   const certificationsList = Array.isArray(profile.certifications) ? [...profile.certifications] : [];
 
   const textLower = (rawText + ' ' + (profile.resumeText || '') + ' ' + (profile.title || '') + ' ' + fileName).toLowerCase();
-
-  // 1. Detect if candidate is a fresher / student
-  const hasFresherKeywords = 
-    textLower.includes('fresher') || 
-    textLower.includes('btech') || 
-    textLower.includes('b.tech') || 
-    textLower.includes('b.e.') || 
-    textLower.includes('b.e ') || 
-    textLower.includes('bca') || 
-    textLower.includes('mca') || 
-    textLower.includes('student') || 
-    textLower.includes('internship') || 
-    textLower.includes('intern') || 
-    textLower.includes('graduate') || 
-    textLower.includes('undergraduate') || 
-    textLower.includes('pursuing') || 
-    textLower.includes('engineering college') || 
-    textLower.includes('university') ||
-    profile.experienceLevel === 'Entry Level' ||
-    profile.experienceLevel === 'Fresher';
-
-  const isFresher = hasFresherKeywords;
-
-  // Let's refine experience Level
-  let experienceLevel = profile.experienceLevel || (isFresher ? 'Entry Level' : 'Mid');
-  if (isFresher) {
-    experienceLevel = 'Entry Level';
-  }
+  const preliminaryClassification = classifyResumeExperience(rawText, experienceList);
+  const experienceLevel = normalizeExperienceLevel(profile.experienceLevel, textLower, experienceList);
+  const isFresher = preliminaryClassification.employmentType === 'Fresher';
 
   // 2. Adjust professional title if fresher
   let finalTitle = sanitizedTitle;
@@ -462,6 +654,8 @@ export function sanitizeUserProfile(profile: UserProfile, rawText: string, fileN
     }
   }
 
+  const finalClassification = classifyResumeExperience(rawText, refinedExperiences);
+
   // 4. Also double-check education degrees
   const refinedEducation = educationList.map(edu => {
     const isObj = typeof edu === 'object' && edu !== null;
@@ -476,12 +670,13 @@ export function sanitizeUserProfile(profile: UserProfile, rawText: string, fileN
     };
   });
 
-  return {
+    return {
     ...profile,
     title: finalTitle,
     skills: sanitizedSkills,
     resumeText: rawText || profile.resumeText,
     experienceLevel: experienceLevel,
+      yearsOfExperience: finalClassification.experienceYears > 0 || finalClassification.experienceMonths > 0 ? `${finalClassification.experienceYears + (finalClassification.experienceMonths / 12)}`.replace(/\.0$/, '') + ' years' : undefined,
     experience: refinedExperiences,
     projects: finalProjects,
     education: refinedEducation,

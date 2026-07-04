@@ -11,10 +11,15 @@ import JobDetailsModal from './components/JobDetailsModal';
 import AICoachBubble from './components/AICoachBubble';
 import ResumeParseModal from './components/ResumeParseModal';
 import CoverLetterModal from './components/CoverLetterModal';
+import PrivacyPage from './components/PrivacyPage';
+import TermsPage from './components/TermsPage';
+import ContactPage from './components/ContactPage';
+import AboutPage from './components/AboutPage';
 import { mockJobs } from './data/jobs';
 import { Job, UserProfile, JobApplication, Notification, SearchAlert } from './types';
 import { calculateMatchScore, validateJobRequirements } from './utils/matchScore';
 import { sanitizeUserProfile } from './utils/resumeParser';
+
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -51,9 +56,11 @@ export default function App() {
           parsed.email === 'sunkarasampath@gmail.com' ||
           parsed.title === 'Senior frontend engineer' ||
           parsed.title === 'Senior Tech Specialist' ||
+          parsed.title === 'B.Tech Graduate & Software Engineer Intern' ||
+          parsed.title === 'Senior Product Designer & Frontend Developer' ||
           (parsed.education && parsed.education.some((e: any) => {
             const schoolName = typeof e === 'object' && e !== null ? (e.school || '') : (e || '');
-            return schoolName.includes('State Technical University') || schoolName.includes('Interactive Media') || schoolName.includes('Indian Institute of Technology') || schoolName.includes('Engineering College');
+            return schoolName.includes('State Technical University') || schoolName.includes('Interactive Media') || schoolName.includes('Sphoorthy Engineering College');
           }));
 
         if (!isOldProfile) {
@@ -66,24 +73,41 @@ export default function App() {
     const defaultProfile = {
       name: 'Sunkara Akshaya',
       email: 'sunkaraakshaya11@gmail.com',
-      title: 'B.Tech Graduate & Software Engineer Intern',
-      skills: ['Python', 'Java', 'SQL', 'React', 'HTML5', 'CSS3', 'Git', 'Data Structures', 'Algorithms'],
-      resumeText: 'Passionate B.Tech Computer Science graduate with hands-on software engineering internship experience. Skilled in modern programming languages including Python and Java, frontend web development using React.js and Tailwind CSS, and database queries with SQL. Experienced in working in collaborative environments to optimize codebase efficiency and implement clean web designs.',
+      title: 'Senior Software Engineer & Full-Stack Developer',
+      skills: ['Python', 'Java', 'SQL', 'React', 'HTML5', 'CSS3', 'Git', 'Data Structures', 'Algorithms', 'TypeScript', 'Node.js', 'AWS'],
+      resumeText: 'Experienced Senior Full-Stack Software Engineer with 8+ years of expertise in designing and building scalable web applications. Proficient in Python, Java, JavaScript/TypeScript, React.js, Node.js, and cloud technologies (AWS). Proven track record of leading cross-functional teams, optimizing system performance by 40%, and delivering enterprise-grade solutions. Strong background in database design (SQL), microservices architecture, RESTful APIs, and CI/CD pipelines. Passionate about mentoring junior developers and implementing clean coding practices. Seeking to leverage expertise in a leadership or principal engineer role.',
       avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDbAWwMpbTuAXNkpIJt-rJA58sDRLHcrMnIbEVrakGD1qSQoBZ-GbMLc_0S9egMlnx1yz20wzRi2SuaaDfVLoU-t5jX7QIsfingYDVp1m7lxfiFZPlOD-laLGB9Ej5MSaJOe1ZD0V5k9AsQqN4FPLZoc1MzlYI_70mvWtYWMzqWxppr6AyuFC9NAY6M56DUU7RBfQsEyXBxqgy8G4wxi_277d7eplRep1_v8fS7rWkbCDRdXlmwMy2e',
-      experienceLevel: 'Entry Level',
+      experienceLevel: 'Senior',
       education: [
+        {
+          degree: 'Master of Science in Computer Science',
+          school: 'University of Technology',
+          year: '2020'
+        },
         {
           degree: 'B.Tech in Computer Science & Engineering',
           school: 'Sphoorthy Engineering College',
-          year: '2026'
+          year: '2018'
         }
       ],
       experience: [
         {
-          role: 'Software Engineer Intern',
+          role: 'Senior Software Engineer',
           company: 'Nebula Systems',
-          duration: 'May 2025 - August 2025',
-          description: 'Assisted in building responsive user interfaces using React.js and Tailwind CSS. Collaborated with the core engineering team to optimize backend database queries and resolve bottlenecks, resulting in a 15% improvement in client-side loading speeds.'
+          duration: 'Jan 2022 - Present',
+          description: 'Led development of microservices architecture for enterprise platform handling 10M+ daily transactions. Mentored team of 5 junior developers, implementing best practices in code quality and testing. Architected React + Node.js full-stack solutions improving system performance by 40%.'
+        },
+        {
+          role: 'Full-Stack Developer',
+          company: 'TechVision Labs',
+          duration: 'Jun 2019 - Dec 2021',
+          description: 'Developed scalable web applications using React, Node.js, and PostgreSQL. Implemented CI/CD pipelines using GitHub Actions, reducing deployment time by 60%. Optimized database queries resulting in 3x performance improvement.'
+        },
+        {
+          role: 'Junior Developer',
+          company: 'StartupHub',
+          duration: 'May 2018 - May 2019',
+          description: 'Built responsive user interfaces and integrated RESTful APIs. Collaborated with product team to translate requirements into technical solutions.'
         }
       ],
       projects: [
@@ -93,7 +117,7 @@ export default function App() {
           technologies: ['React', 'Python', 'Tailwind CSS', 'SQL']
         }
       ],
-      certifications: ['AWS Certified Cloud Practitioner', 'Google IT Support Professional Certificate']
+      certifications: ['AWS Certified Solutions Architect - Professional', 'Kubernetes Certified Developer', 'Google Cloud Professional Data Engineer', 'AWS Certified Cloud Practitioner']
     };
     
     // Save the default profile into local storage so any subsequent reads or refreshes are clean
@@ -114,11 +138,12 @@ export default function App() {
       time: 'Just now',
       read: false
     };
-    setNotifications(curr => [welcomeNotif, ...curr]);
+    setNotifications((curr: Notification[]) => [welcomeNotif, ...curr]);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('career_path_ai_logged_in');
+    localStorage.removeItem('career_path_ai_token');
     setIsLoggedIn(false);
     setActiveTab('home');
     setSelectedJob(null);
@@ -294,7 +319,7 @@ export default function App() {
   }, [theme]);
 
   const handleToggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setTheme((prev: 'dark' | 'light') => prev === 'dark' ? 'light' : 'dark');
   };
 
   // Persist States to LocalStorage
@@ -351,7 +376,7 @@ export default function App() {
   // Periodic search alert checker & simulator connected to the backend
   useEffect(() => {
     const checkAlerts = async () => {
-      const activeAlerts = searchAlerts.filter(a => a.active);
+      const activeAlerts = searchAlerts.filter((a: SearchAlert) => a.active);
       if (activeAlerts.length === 0) return;
 
       // Select a random active alert
@@ -376,7 +401,7 @@ export default function App() {
             profile: {
               title: profile.title,
               skills: profile.skills,
-              summary: profile.bio
+              summary: profile.resumeText
             }
           })
         });
@@ -394,22 +419,22 @@ export default function App() {
             time: 'Just now',
             read: false
           };
-          setNotifications(curr => [newNotif, ...curr]);
+          setNotifications((curr: Notification[]) => [newNotif, ...curr]);
         }
       } catch (err) {
         console.warn('Backend search alert check failed or bypassed, using local matching fallback:', err);
         // Find jobs in our directory that match
-        const matchingJobs = mockJobs.filter(job => 
+        const matchingJobs = mockJobs.filter((job: Job) => 
           job.title.toLowerCase().includes(queryLower) ||
           job.company.toLowerCase().includes(queryLower) ||
           job.description.toLowerCase().includes(queryLower) ||
-          job.requirements.some(req => req.toLowerCase().includes(queryLower))
+          job.requirements.some((req: string) => req.toLowerCase().includes(queryLower))
         );
 
         if (matchingJobs.length > 0) {
           // Find one matching job that we haven't notified about yet
-          const unnotifiedJob = matchingJobs.find(job => 
-            !notifications.some(notif => 
+          const unnotifiedJob = matchingJobs.find((job: Job) => 
+            !notifications.some((notif: Notification) => 
               notif.title.includes(randomAlert.query) && 
               notif.body.includes(job.title) &&
               notif.body.includes(job.company)
@@ -424,7 +449,7 @@ export default function App() {
               time: 'Just now',
               read: false
             };
-            setNotifications(curr => [newNotif, ...curr]);
+            setNotifications((curr: Notification[]) => [newNotif, ...curr]);
           }
         } else {
           // Simulate a new matching job posting dynamically if nothing matches the current directory
@@ -433,7 +458,7 @@ export default function App() {
           const simulatedTitle = randomAlert.query.charAt(0).toUpperCase() + randomAlert.query.slice(1) + " Specialist";
           
           // Ensure we haven't already posted this simulated matching notification
-          const alreadySimulated = notifications.some(notif => 
+          const alreadySimulated = notifications.some((notif: Notification) => 
             notif.title.includes(randomAlert.query) && 
             notif.body.includes(randomCompany) && 
             notif.body.includes(simulatedTitle)
@@ -447,7 +472,7 @@ export default function App() {
               time: 'Just now',
               read: false
             };
-            setNotifications(curr => [newNotif, ...curr]);
+            setNotifications((curr: Notification[]) => [newNotif, ...curr]);
           }
         }
       }
@@ -462,11 +487,11 @@ export default function App() {
     const trimmed = queryText.trim();
     if (!trimmed) return;
     
-    setSearchAlerts(prev => {
-      const exists = prev.find(a => a.query.toLowerCase() === trimmed.toLowerCase());
+    setSearchAlerts((prev: SearchAlert[]) => {
+      const exists = prev.find((a: SearchAlert) => a.query.toLowerCase() === trimmed.toLowerCase());
       if (exists) {
         // Remove alert
-        return prev.filter(a => a.query.toLowerCase() !== trimmed.toLowerCase());
+        return prev.filter((a: SearchAlert) => a.query.toLowerCase() !== trimmed.toLowerCase());
       } else {
         // Add alert
         const newAlert: SearchAlert = {
@@ -484,7 +509,7 @@ export default function App() {
           time: 'Just now',
           read: false
         };
-        setNotifications(curr => [introNotif, ...curr]);
+        setNotifications((curr: Notification[]) => [introNotif, ...curr]);
 
         return [...prev, newAlert];
       }
@@ -492,16 +517,16 @@ export default function App() {
   };
 
   const handleRemoveSearchAlert = (id: string) => {
-    setSearchAlerts(prev => prev.filter(a => a.id !== id));
+    setSearchAlerts((prev: SearchAlert[]) => prev.filter((a: SearchAlert) => a.id !== id));
   };
   const handleToggleSaveJob = (jobId: string) => {
-    setSavedJobIds(prev => {
+    setSavedJobIds((prev: string[]) => {
       const isSaved = prev.includes(jobId);
       if (isSaved) {
-        return prev.filter(id => id !== jobId);
+        return prev.filter((id: string) => id !== jobId);
       } else {
         // Create an alert notification
-        const matchedJob = jobs.find(j => j.id === jobId) || mockJobs.find(j => j.id === jobId);
+        const matchedJob = jobs.find((j: Job) => j.id === jobId) || mockJobs.find((j: Job) => j.id === jobId);
         if (matchedJob) {
           const newNotif: Notification = {
             id: `notif-${Date.now()}`,
@@ -510,7 +535,7 @@ export default function App() {
             time: 'Just now',
             read: false
           };
-          setNotifications(curr => [newNotif, ...curr]);
+          setNotifications((curr: Notification[]) => [newNotif, ...curr]);
         }
         return [...prev, jobId];
       }
@@ -529,11 +554,11 @@ export default function App() {
       ...additionalData
     };
 
-    setApplications(prev => [...prev, newApp]);
-    setAppliedJobIds(prev => [...prev, jobId]);
+    setApplications((prev: JobApplication[]) => [...prev, newApp]);
+    setAppliedJobIds((prev: string[]) => [...prev, jobId]);
 
     // Create a notification
-    const matchedJob = jobs.find(j => j.id === jobId) || mockJobs.find(j => j.id === jobId);
+    const matchedJob = jobs.find((j: Job) => j.id === jobId) || mockJobs.find((j: Job) => j.id === jobId);
     if (matchedJob) {
       const newNotif: Notification = {
         id: `notif-${Date.now()}`,
@@ -542,15 +567,15 @@ export default function App() {
         time: 'Just now',
         read: false
       };
-      setNotifications(curr => [newNotif, ...curr]);
+      setNotifications((curr: Notification[]) => [newNotif, ...curr]);
     }
   };
 
   const handleWithdrawApplication = (jobId: string) => {
-    setApplications(prev => prev.filter(app => app.jobId !== jobId));
-    setAppliedJobIds(prev => prev.filter(id => id !== jobId));
+    setApplications((prev: JobApplication[]) => prev.filter((app: JobApplication) => app.jobId !== jobId));
+    setAppliedJobIds((prev: string[]) => prev.filter((id: string) => id !== jobId));
 
-    const matchedJob = jobs.find(j => j.id === jobId) || mockJobs.find(j => j.id === jobId);
+    const matchedJob = jobs.find((j: Job) => j.id === jobId) || mockJobs.find((j: Job) => j.id === jobId);
     if (matchedJob) {
       const newNotif: Notification = {
         id: `notif-withdrawn-${Date.now()}`,
@@ -559,15 +584,15 @@ export default function App() {
         time: 'Just now',
         read: false
       };
-      setNotifications(curr => [newNotif, ...curr]);
+      setNotifications((curr: Notification[]) => [newNotif, ...curr]);
     }
   };
 
   const handleUpdateApplicationStatus = (jobId: string, status: JobApplication['status']) => {
-    setApplications(prev => prev.map(app => app.jobId === jobId ? { ...app, status } : app));
+    setApplications((prev: JobApplication[]) => prev.map((app: JobApplication) => app.jobId === jobId ? { ...app, status } : app));
 
     // Create a notification for status change
-    const matchedJob = jobs.find(j => j.id === jobId) || mockJobs.find(j => j.id === jobId);
+    const matchedJob = jobs.find((j: Job) => j.id === jobId) || mockJobs.find((j: Job) => j.id === jobId);
     if (matchedJob) {
       const newNotif: Notification = {
         id: `notif-${Date.now()}`,
@@ -576,15 +601,15 @@ export default function App() {
         time: 'Just now',
         read: false
       };
-      setNotifications(curr => [newNotif, ...curr]);
+      setNotifications((curr: Notification[]) => [newNotif, ...curr]);
     }
   };
 
   const handleUpdateApplicationInterviewDate = (jobId: string, interviewDate: string) => {
-    setApplications(prev => prev.map(app => app.jobId === jobId ? { ...app, status: 'Interviewing', interviewDate } : app));
+    setApplications((prev: JobApplication[]) => prev.map((app: JobApplication) => app.jobId === jobId ? { ...app, status: 'Interviewing', interviewDate } : app));
 
     // Create a notification for interview scheduled
-    const matchedJob = jobs.find(j => j.id === jobId) || mockJobs.find(j => j.id === jobId);
+    const matchedJob = jobs.find((j: Job) => j.id === jobId) || mockJobs.find((j: Job) => j.id === jobId);
     if (matchedJob) {
       const newNotif: Notification = {
         id: `notif-int-${Date.now()}`,
@@ -593,12 +618,12 @@ export default function App() {
         time: 'Just now',
         read: false
       };
-      setNotifications(curr => [newNotif, ...curr]);
+      setNotifications((curr: Notification[]) => [newNotif, ...curr]);
     }
   };
 
   const handleMarkNotificationRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setNotifications((prev: Notification[]) => prev.map((n: Notification) => n.id === id ? { ...n, read: true } : n));
   };
 
   const handleClearNotifications = () => {
@@ -607,13 +632,13 @@ export default function App() {
 
   const runAutoApply = async (updatedProfile: UserProfile, options?: { showNoMatchesNotif?: boolean }) => {
     // 1. Get eligible jobs (not already applied to)
-    const eligibleJobs = jobs.filter(job => !appliedJobIds.includes(job.id));
+    const eligibleJobs = jobs.filter((job: Job) => !appliedJobIds.includes(job.id));
     if (eligibleJobs.length === 0) return;
 
     // 2. Score and explicitly validate jobs against the uploaded resume content (seniority, experience, role fit)
     const validationResults: { job: Job; reason: string }[] = [];
 
-    const matches = eligibleJobs.map(job => {
+    const matches = eligibleJobs.map((job: Job) => {
       const score = calculateMatchScore(job, updatedProfile.skills, updatedProfile.title, updatedProfile.resumeText);
       const validation = validateJobRequirements(job, updatedProfile);
       
@@ -628,19 +653,19 @@ export default function App() {
         validationReason: validation.reason
       };
     })
-    .filter(item => item.score >= 60 && item.isValid)
-    .sort((a, b) => b.score - a.score);
+    .filter((item: any) => item.score >= 60 && item.isValid)
+    .sort((a: any, b: any) => b.score - a.score);
 
     // Notify the user about high-matching jobs that were safely skipped due to explicit criteria
     if (validationResults.length > 0) {
       const skippedNotif: Notification = {
         id: `notif-auto-apply-skipped-${Date.now()}`,
         title: 'Auto-Apply Protection Active 🛡️',
-        body: `Protected your application flow by skipping ${validationResults.length} position(s) (including ${validationResults.map(r => r.job.title).join(', ')}) due to seniority/experience mismatch with your resume.`,
+        body: `Protected your application flow by skipping ${validationResults.length} position(s) (including ${validationResults.map((r: any) => r.job.title).join(', ')}) due to seniority/experience mismatch with your resume.`,
         time: 'Just now',
         read: false
       };
-      setNotifications(curr => [skippedNotif, ...curr]);
+      setNotifications((curr: Notification[]) => [skippedNotif, ...curr]);
     }
 
     if (matches.length === 0) {
@@ -652,7 +677,7 @@ export default function App() {
           time: 'Just now',
           read: false
         };
-        setNotifications(curr => [infoNotif, ...curr]);
+        setNotifications((curr: Notification[]) => [infoNotif, ...curr]);
       }
       return;
     }
@@ -668,13 +693,13 @@ export default function App() {
       time: 'Just now',
       read: false
     };
-    setNotifications(curr => [startNotif, ...curr]);
+    setNotifications((curr: Notification[]) => [startNotif, ...curr]);
 
     // Apply to matches instantly in the local state, so the user sees them "Applied" immediately!
     const newApps: JobApplication[] = [];
     const newJobIds: string[] = [];
 
-    topMatches.forEach(match => {
+    topMatches.forEach((match: any) => {
       const { job, score } = match;
       const defaultCoverLetter = `Dear Hiring Team at ${job.company},\n\nI am thrilled to submit my automatic application for the ${job.title} role. Having reviewed your requirements (including ${job.requirements.slice(0, 3).join(', ')}), I am confident that my experience with ${updatedProfile.skills.slice(0, 4).join(', ')} matches perfectly, earning an ATS compatibility rating of ${score}%.\n\nThank you for considering my application.\n\nBest regards,\n${updatedProfile.name}`;
 
@@ -691,18 +716,18 @@ export default function App() {
     });
 
     // Batch update applications and appliedJobIds state instantly!
-    setApplications(prev => {
-      const filtered = prev.filter(app => !newJobIds.includes(app.jobId));
+    setApplications((prev: JobApplication[]) => {
+      const filtered = prev.filter((app: JobApplication) => !newJobIds.includes(app.jobId));
       return [...filtered, ...newApps];
     });
 
-    setAppliedJobIds(prev => {
+    setAppliedJobIds((prev: string[]) => {
       const filtered = prev.filter(id => !newJobIds.includes(id));
       return [...filtered, ...newJobIds];
     });
 
     // Create success notifications and trigger background cover letter generation
-    topMatches.forEach(match => {
+    topMatches.forEach((match: any) => {
       const { job, score } = match;
 
       const successNotif: Notification = {
@@ -712,7 +737,7 @@ export default function App() {
         time: 'Just now',
         read: false
       };
-      setNotifications(curr => [successNotif, ...curr]);
+      setNotifications((curr: Notification[]) => [successNotif, ...curr]);
 
       // Fire-and-forget async fetch to generate beautiful custom cover letter via Gemini
       fetch('/api/gemini/cover-letter', {
@@ -731,7 +756,7 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           if (data.coverLetter) {
-            setApplications(prev => prev.map(app => 
+            setApplications((prev: JobApplication[]) => prev.map((app: JobApplication) => 
               app.jobId === job.id ? { ...app, coverLetter: data.coverLetter } : app
             ));
           }
@@ -758,7 +783,7 @@ export default function App() {
       time: 'Just now',
       read: false
     };
-    setNotifications(curr => {
+    setNotifications((curr: Notification[]) => {
       const updated = [newNotif, ...curr];
       localStorage.setItem('career_pulse_notifications', JSON.stringify(updated));
       return updated;
@@ -1029,14 +1054,6 @@ export default function App() {
         onMarkNotificationAsRead={handleMarkNotificationRead}
         onClearNotifications={handleClearNotifications}
         setActiveTab={setActiveTab}
-        savedJobs={jobs.filter(job => savedJobIds.includes(job.id))}
-        applications={applications}
-        jobs={jobs}
-        onSelectJob={setSelectedJob}
-        onSelectProfileSection={(section) => {
-          setActiveTab('profile');
-          setProfileSubTab(section);
-        }}
         theme={theme}
         onToggleTheme={handleToggleTheme}
       />
@@ -1120,7 +1137,24 @@ export default function App() {
             initialSubTab={profileSubTab}
           />
         )}
+
+        {activeTab === 'privacy' && <PrivacyPage />}
+        {activeTab === 'terms' && <TermsPage />}
+        {activeTab === 'contact' && <ContactPage />}
+        {activeTab === 'about' && <AboutPage />}
       </main>
+
+      <footer className="border-t border-white/10 bg-[#070B17]/95 py-4 px-6 md:px-10 text-sm text-white/70">
+        <div className="max-w-6xl mx-auto flex flex-col items-center justify-center gap-3 text-center">
+          <p className="text-[12px] text-white/50">CareerPath AI © 2026. Crafted for smarter career growth.</p>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-[12px]">
+            <button onClick={() => setActiveTab('privacy')} className="text-white/70 hover:text-white transition-colors">Privacy</button>
+            <button onClick={() => setActiveTab('terms')} className="text-white/70 hover:text-white transition-colors">Terms</button>
+            <button onClick={() => setActiveTab('contact')} className="text-white/70 hover:text-white transition-colors">Contact</button>
+            <button onClick={() => setActiveTab('about')} className="text-white/70 hover:text-white transition-colors">About</button>
+          </div>
+        </div>
+      </footer>
 
       {/* Slide-Up Bottom Navigation Bar matching user mockup - visible on mobile only */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-950/45 backdrop-blur-xl border-t border-white/10 z-40 flex items-center justify-around px-4">
@@ -1191,7 +1225,7 @@ export default function App() {
       </nav>
 
       {/* Mobile Quick Actions Floating Trigger Button */}
-      <div className="md:hidden fixed bottom-20 right-4 z-40">
+      <div className="md:hidden fixed bottom-20 left-4 z-40">
         <button
           onClick={() => setShowQuickActions(!showQuickActions)}
           className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-[0.93] transition-all cursor-pointer"

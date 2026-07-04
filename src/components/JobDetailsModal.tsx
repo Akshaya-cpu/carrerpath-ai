@@ -99,22 +99,6 @@ export default function JobDetailsModal({
     }, 200);
   };
 
-  const handleEmailShare = () => {
-    const subject = encodeURIComponent(`Exciting Job Opportunity: ${job.title} at ${job.company}`);
-    const body = encodeURIComponent(
-      `Hi,\n\n` +
-      `I wanted to share this exciting job opportunity with you!\n\n` +
-      `• Role: ${job.title}\n` +
-      `• Company: ${job.company}\n` +
-      `• Location: ${job.location}\n` +
-      `• Salary: ${job.salary}\n\n` +
-      `Description:\n${job.description}\n\n` +
-      `You can view more details about the role here: ${window.location.href}\n\n` +
-      `Best regards!`
-    );
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  };
-
   const handleShare = () => {
     try {
       const text = `${job.title} at ${job.company} (${job.location}) - Found on CareerPath AI!`;
@@ -472,15 +456,6 @@ export default function JobDetailsModal({
             >
               <MessageSquare className="w-3.5 h-3.5" />
               Interview Prep
-            </button>
-            <button
-              onClick={handleEmailShare}
-              className="text-xs font-bold uppercase tracking-wider h-8 px-3 rounded-lg flex items-center gap-1.5 border bg-white/5 text-indigo-300 border-indigo-500/30 hover:bg-white/10 transition-all duration-150"
-              title="Share via Email"
-              id="job-share-email-top-btn"
-            >
-              <Mail className="w-3.5 h-3.5" />
-              Share
             </button>
             <button 
               onClick={onClose}

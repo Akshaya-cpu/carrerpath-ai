@@ -4,11 +4,12 @@ import {
   Briefcase, Code, FileText, BarChart, Info, ShieldAlert,
   Check, X, ChevronDown, ChevronUp, Award, Cpu, Compass, BookOpen, GraduationCap, TrendingUp, ArrowRight, Download, ExternalLink,
   Calendar, Clock, Plus, ChevronLeft, ChevronRight, MapPin, Upload, Copy,
-  CreditCard, Crown, ShieldCheck, Globe, Phone
+  CreditCard, Crown, ShieldCheck, Globe, Phone, MessageCircle
 } from 'lucide-react';
 import { UserProfile, ResumeReviewResult, Job, JobApplication } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
+import { sanitizeUserProfile } from '../utils/resumeParser';
 
 export interface CareerRoadmapStep {
   title: string;
@@ -153,7 +154,7 @@ export default function ProfileTab({
   initialSubTab
 }: ProfileTabProps) {
   const atsResult = getAtsAnalysis(profile);
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'coaching' | 'interviews' | 'tools' | 'subscription'>(initialSubTab || 'profile');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'coaching' | 'interviews' | 'tools' | 'subscription' | 'feedback'>(initialSubTab || 'profile');
   const [isPremium, setIsPremium] = useState<boolean>(() => {
     return localStorage.getItem('careerpath_premium_pro') === 'true';
   });
@@ -185,6 +186,7 @@ export default function ProfileTab({
   const [auditStep, setAuditStep] = useState(0);
 
   // Gemini Resume parsing states for Auto-Fill
+  const [userId, setUserId] = useState<string | null>(null);
   const [rawResumeInput, setRawResumeInput] = useState('');
   const [isParsing, setIsParsing] = useState(false);
   const [parseStep, setParseStep] = useState(0);
@@ -213,6 +215,27 @@ export default function ProfileTab({
   const [gapAnalysisError, setGapAnalysisError] = useState('');
   const [gapGenStep, setGapGenStep] = useState(0);
 
+  useEffect(() => {
+    const token = localStorage.getItem('career_path_ai_token');
+    if (!token) return;
+
+    fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.user) {
+          setName(data.user.name || profile.name);
+          setEmail(data.user.email || profile.email);
+          setUserId(data.user.id || null);
+        }
+      })
+      .catch(() => {
+        // Ignore fetch failures, preserve local profile state.
+      });
+  }, [profile.email, profile.name, profile.title]);
+
   // Scheduled Interviews Calendar States
   const [calendarDate, setCalendarDate] = useState(() => new Date(2026, 6, 1)); // Default July 1, 2026
   const [selectedDay, setSelectedDay] = useState<number | null>(8); // Default to July 8 (our seeded interview day)
@@ -221,21 +244,19 @@ export default function ProfileTab({
 
   // Resume Version History States
   const [resumeVersions, setResumeVersions] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem(`career_path_ai_resume_history_${profile.email}`);
-      if (saved) {
+    const saved = localStorage.getItem(`career_path_ai_resume_history_${profile.email}`);
+    if (saved) {
+      try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error(e);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
     }
-    // Seed with initial master version
+
     return [
       {
         id: 'v1',
-        versionName: 'v1 - Initial Master Profile',
-        uploadedAt: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString(),
+        versionName: 'Master Profile',
+        uploadedAt: new Date().toISOString(),
         fileName: 'Master_Profile_Resume.txt',
         score: 68,
         text: profile.resumeText || 'No professional bio uploaded. Add your bio description to review matching recommendations.',
@@ -249,7 +270,7 @@ export default function ProfileTab({
       const saved = localStorage.getItem(`career_path_ai_resume_history_${profile.email}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0) return parsed[parsed.length - 1].id;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[parsed.length - 1].id;
       }
     } catch {}
     return 'v1';
@@ -698,7 +719,7 @@ export default function ProfileTab({
               parsedCertifications = data.certifications || [];
             }
 
-            const dummyProfile = {
+            const dummyProfile = sanitizeUserProfile({
               ...profile,
               title: parsedTitle,
               skills: parsedSkills,
@@ -707,7 +728,7 @@ export default function ProfileTab({
               experience: parsedExperience,
               projects: parsedProjects,
               certifications: parsedCertifications
-            };
+            }, text.trim(), file.name);
             const evaluation = getAtsAnalysis(dummyProfile);
             const passedCount = evaluation.checks.filter(c => c.passed).length;
             const calculatedScore = Math.min(98, Math.round(55 + (passedCount / evaluation.checks.length) * 43));
@@ -788,7 +809,7 @@ export default function ProfileTab({
             const parsedSkills = data.skills && data.skills.length > 0 ? data.skills : profile.skills;
             const extractedText = data.fullText || data.summary || '';
 
-            const dummyProfile = {
+            const dummyProfile = sanitizeUserProfile({
               ...profile,
               name: parsedName,
               title: parsedTitle,
@@ -798,7 +819,7 @@ export default function ProfileTab({
               experience: data.experience || [],
               projects: data.projects || [],
               certifications: data.certifications || []
-            };
+            }, extractedText, file.name);
             const evaluation = getAtsAnalysis(dummyProfile);
             const passedCount = evaluation.checks.filter(c => c.passed).length;
             const calculatedScore = Math.min(98, Math.round(55 + (passedCount / evaluation.checks.length) * 43));
@@ -1290,14 +1311,18 @@ export default function ProfileTab({
       const parsedName = data.name && data.name !== 'Candidate' ? data.name : profile.name;
       const parsedTitle = data.title || profile.title;
       const parsedSkills = data.skills && Array.isArray(data.skills) ? data.skills : profile.skills;
-      const parsedSummary = data.summary || rawResumeInput;
+      const parsedSummary = data.summary || data.profileSummary || rawResumeInput;
+      const parsedEducation = Array.isArray(data.education) ? data.education : profile.education || [];
+      const parsedExperience = Array.isArray(data.experience) ? data.experience : profile.experience || [];
+      const parsedProjects = Array.isArray(data.projects) ? data.projects : profile.projects || [];
+      const parsedCertifications = Array.isArray(data.certifications) ? data.certifications : profile.certifications || [];
 
       if (data.name && data.name !== 'Candidate') setName(data.name);
       if (data.title) setTitle(data.title);
       if (data.skills && Array.isArray(data.skills)) {
         setSkillsText(data.skills.join(', '));
       }
-      if (data.summary) setResumeText(data.summary);
+      if (parsedSummary) setResumeText(parsedSummary);
 
       // Instantly synchronize with the parent master profile, triggering auto-apply if enabled
       onUpdateProfile({
@@ -1305,7 +1330,11 @@ export default function ProfileTab({
         name: parsedName,
         title: parsedTitle,
         skills: parsedSkills,
-        resumeText: parsedSummary
+        resumeText: parsedSummary,
+        education: parsedEducation,
+        experience: parsedExperience,
+        projects: parsedProjects,
+        certifications: parsedCertifications
       }, { isResumeUpload: true });
 
       setParseSuccess(`Profile fields pre-filled with ${parsedSkills.length} skills, executive bio, and headline! Review the updated fields below, and they have been automatically synchronized and processed for job matching.`);
@@ -1546,7 +1575,8 @@ export default function ProfileTab({
           { id: 'coaching', label: 'AI Career Coach', icon: Sparkles },
           { id: 'interviews', label: 'Interviews & Calendar', icon: Calendar },
           { id: 'tools', label: 'Resume Parser & Settings', icon: FileText },
-          { id: 'subscription', label: isPremium ? 'Premium (Active)' : 'Upgrade to Premium', icon: isPremium ? Crown : CreditCard }
+          { id: 'subscription', label: isPremium ? 'Premium (Active)' : 'Upgrade to Premium', icon: isPremium ? Crown : CreditCard },
+          { id: 'feedback', label: 'Feedback & Support', icon: MessageCircle }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.id;
@@ -2258,113 +2288,7 @@ export default function ProfileTab({
               </div>
             </div>
 
-            <div className="space-y-2 text-left">
-              <strong className="text-white/60 block text-[10px] uppercase font-bold tracking-wider">Professional Bio & Credentials:</strong>
-              <p className="p-4 bg-white/5 border border-white/10 rounded-2xl whitespace-pre-wrap leading-relaxed text-white/70 font-sans text-xs">
-                {profile.resumeText || 'No professional bio uploaded. Add your bio description to review matching recommendations.'}
-              </p>
-            </div>
 
-            {/* Extracted Experience Section */}
-            {profile.experience && profile.experience.length > 0 && (
-              <div className="space-y-3 text-left pt-2">
-                <strong className="text-white/60 block text-[10px] uppercase font-bold tracking-wider">Professional Experience (Extracted):</strong>
-                <div className="space-y-3.5">
-                  {profile.experience.map((exp: any, i: number) => {
-                    const isObj = typeof exp === 'object' && exp !== null;
-                    const role = isObj ? exp.role : exp;
-                    const company = isObj ? exp.company : '';
-                    const duration = isObj ? exp.duration : '';
-                    const description = isObj ? exp.description : '';
-                    return (
-                      <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1.5 hover:bg-white/[0.07] transition-all">
-                        <div className="flex flex-wrap justify-between items-center gap-2">
-                          <h4 className="font-bold text-xs text-white">{role}</h4>
-                          {duration && <span className="text-[10px] text-white/40 font-semibold">{duration}</span>}
-                        </div>
-                        {company && <p className="text-[11px] text-indigo-300 font-bold">{company}</p>}
-                        {description && (
-                          <p className="text-[11px] text-white/60 leading-relaxed pl-1 border-l-2 border-indigo-500/30 whitespace-pre-wrap">
-                            {description}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Extracted Projects Section */}
-            {profile.projects && profile.projects.length > 0 && (
-              <div className="space-y-3 text-left pt-2">
-                <strong className="text-white/60 block text-[10px] uppercase font-bold tracking-wider">Notable Projects (Extracted):</strong>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {profile.projects.map((proj: any, i: number) => {
-                    const isObj = typeof proj === 'object' && proj !== null;
-                    const name = isObj ? proj.name : proj;
-                    const description = isObj ? proj.description : '';
-                    const technologies = isObj ? proj.technologies : [];
-                    return (
-                      <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2 flex flex-col justify-between hover:bg-white/[0.07] transition-all">
-                        <div className="space-y-1">
-                          <h4 className="font-bold text-xs text-white">{name}</h4>
-                          {description && <p className="text-[11px] text-white/60 leading-relaxed">{description}</p>}
-                        </div>
-                        {technologies && technologies.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {technologies.map((tech: string, j: number) => (
-                              <span key={j} className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded font-mono font-bold">
-                                {tech}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Extracted Education Section */}
-            {profile.education && profile.education.length > 0 && (
-              <div className="space-y-3 text-left pt-2">
-                <strong className="text-white/60 block text-[10px] uppercase font-bold tracking-wider">Education History (Extracted):</strong>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {profile.education.map((edu: any, i: number) => {
-                    const isObj = typeof edu === 'object' && edu !== null;
-                    const degree = isObj ? edu.degree : edu;
-                    const school = isObj ? edu.school : '';
-                    const year = isObj ? edu.year : '';
-                    return (
-                      <div key={i} className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1 hover:bg-white/[0.07] transition-all">
-                        <div className="flex justify-between items-start gap-2">
-                          <h4 className="font-bold text-xs text-white">{degree}</h4>
-                          {year && <span className="text-[9px] text-white/40 font-bold font-mono">{year}</span>}
-                        </div>
-                        {school && <p className="text-[11px] text-indigo-300 font-semibold">{school}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Extracted Certifications Section */}
-            {profile.certifications && profile.certifications.length > 0 && (
-              <div className="space-y-2.5 text-left pt-2">
-                <strong className="text-white/60 block text-[10px] uppercase font-bold tracking-wider">Professional Certifications (Extracted):</strong>
-                <div className="flex flex-wrap gap-1.5">
-                  {profile.certifications.map((cert: string, i: number) => (
-                    <span key={i} className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white/80 transition-all flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full shrink-0" />
-                      {cert}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -4508,6 +4432,199 @@ export default function ProfileTab({
             </motion.div>
           </motion.div>
         )}
+
+      {activeSubTab === 'feedback' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          {/* Feedback Header */}
+          <div className="glass-card border-white/10 p-6 rounded-2xl shadow-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <MessageCircle className="w-5 h-5 text-indigo-400" />
+              <h2 className="text-xl font-bold text-white">Feedback & Support</h2>
+            </div>
+            <p className="text-sm text-white/70">Help us improve CareerPath AI by sharing your feedback and reporting any issues you encounter.</p>
+          </div>
+
+          {/* Feedback Form Section */}
+          <div className="glass-card border-white/10 p-6 rounded-2xl shadow-lg">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-indigo-400" />
+              Send us Your Feedback
+            </h3>
+            <form className="space-y-4">
+              {/* Feedback Type */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-white/80 block">Feedback Type</label>
+                <select className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white/80 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-sm">
+                  <option value="bug" className="bg-slate-900">🐛 Bug Report</option>
+                  <option value="feature" className="bg-slate-900">✨ Feature Request</option>
+                  <option value="improvement" className="bg-slate-900">📈 Improvement Suggestion</option>
+                  <option value="general" className="bg-slate-900">💬 General Feedback</option>
+                </select>
+              </div>
+
+              {/* Feedback Message */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-white/80 block">Your Feedback</label>
+                <textarea
+                  placeholder="Tell us what you think... (minimum 20 characters)"
+                  minLength={20}
+                  rows={5}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-sm resize-none"
+                />
+              </div>
+
+              {/* Contact Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-white/80 block">Your Name</label>
+                  <input
+                    type="text"
+                    defaultValue={profile.name}
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-white/80 block">Email Address</label>
+                  <input
+                    type="email"
+                    defaultValue={profile.email}
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Rating Section */}
+              <div className="space-y-3 pt-2">
+                <label className="text-sm font-semibold text-white/80 block">Rate Your Experience</label>
+                <div className="flex gap-3 justify-start">
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      key={rating}
+                      type="button"
+                      className="w-12 h-12 rounded-xl border border-white/20 hover:border-indigo-500 text-2xl transition-all hover:scale-110 active:scale-95"
+                    >
+                      {'⭐'[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Mail className="w-4 h-4" />
+                  Submit Feedback
+                </button>
+                <button
+                  type="reset"
+                  className="px-4 py-3 bg-white/5 hover:bg-white/10 text-white/80 font-semibold rounded-xl border border-white/10 transition-all"
+                >
+                  Clear
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Support Resources */}
+          <div className="glass-card border-white/10 p-6 rounded-2xl shadow-lg">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Info className="w-4 h-4 text-amber-400" />
+              Support Resources
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <a
+                href="#"
+                className="p-4 border border-white/10 rounded-xl hover:border-indigo-500 hover:bg-indigo-500/5 transition-all cursor-pointer group"
+              >
+                <div className="flex items-start gap-3">
+                  <FileText className="w-5 h-5 text-indigo-400 shrink-0 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-white group-hover:text-indigo-300 transition-colors">Documentation</h4>
+                    <p className="text-xs text-white/50 mt-1">Browse our help guides and tutorials</p>
+                  </div>
+                </div>
+              </a>
+              <a
+                href="#"
+                className="p-4 border border-white/10 rounded-xl hover:border-indigo-500 hover:bg-indigo-500/5 transition-all cursor-pointer group"
+              >
+                <div className="flex items-start gap-3">
+                  <Globe className="w-5 h-5 text-green-400 shrink-0 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-white group-hover:text-green-300 transition-colors">Status Page</h4>
+                    <p className="text-xs text-white/50 mt-1">Check system status and updates</p>
+                  </div>
+                </div>
+              </a>
+              <a
+                href="#"
+                className="p-4 border border-white/10 rounded-xl hover:border-indigo-500 hover:bg-indigo-500/5 transition-all cursor-pointer group"
+              >
+                <div className="flex items-start gap-3">
+                  <Mail className="w-5 h-5 text-purple-400 shrink-0 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-white group-hover:text-purple-300 transition-colors">Email Support</h4>
+                    <p className="text-xs text-white/50 mt-1">support@careerpath.ai</p>
+                  </div>
+                </div>
+              </a>
+              <a
+                href="#"
+                className="p-4 border border-white/10 rounded-xl hover:border-indigo-500 hover:bg-indigo-500/5 transition-all cursor-pointer group"
+              >
+                <div className="flex items-start gap-3">
+                  <MessageCircle className="w-5 h-5 text-blue-400 shrink-0 mt-1" />
+                  <div>
+                    <h4 className="font-semibold text-white group-hover:text-blue-300 transition-colors">Discord Community</h4>
+                    <p className="text-xs text-white/50 mt-1">Join our community for discussions</p>
+                  </div>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          {/* FAQ Section */}
+          <div className="glass-card border-white/10 p-6 rounded-2xl shadow-lg">
+            <h3 className="text-lg font-semibold text-white mb-4">Frequently Asked Questions</h3>
+            <div className="space-y-3">
+              <details className="group cursor-pointer">
+                <summary className="flex items-center justify-between py-3 px-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all">
+                  <span className="font-medium text-white/90">How do I update my profile?</span>
+                  <ChevronDown className="w-4 h-4 text-white/50 group-open:rotate-180 transition-transform" />
+                </summary>
+                <p className="px-4 py-3 text-sm text-white/70 bg-white/[0.02] mt-2 rounded-lg">
+                  Click on the "Profile & ATS" tab to edit your professional information, resume, and career details. All changes are automatically saved.
+                </p>
+              </details>
+              <details className="group cursor-pointer">
+                <summary className="flex items-center justify-between py-3 px-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all">
+                  <span className="font-medium text-white/90">Is my data secure and private?</span>
+                  <ChevronDown className="w-4 h-4 text-white/50 group-open:rotate-180 transition-transform" />
+                </summary>
+                <p className="px-4 py-3 text-sm text-white/70 bg-white/[0.02] mt-2 rounded-lg">
+                  Yes, we use industry-standard encryption and your data is stored securely. We never share your information with third parties without consent.
+                </p>
+              </details>
+              <details className="group cursor-pointer">
+                <summary className="flex items-center justify-between py-3 px-4 bg-white/5 hover:bg-white/10 rounded-xl transition-all">
+                  <span className="font-medium text-white/90">How does AI matching work?</span>
+                  <ChevronDown className="w-4 h-4 text-white/50 group-open:rotate-180 transition-transform" />
+                </summary>
+                <p className="px-4 py-3 text-sm text-white/70 bg-white/[0.02] mt-2 rounded-lg">
+                  Our AI analyzes your resume, skills, and preferences to find the best matching jobs. The compatibility score reflects how well each role aligns with your background.
+                </p>
+              </details>
+            </div>
+          </div>
+        </motion.div>
+      )}
       </AnimatePresence>
     </div>
   );

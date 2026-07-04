@@ -444,6 +444,53 @@ body {
   background-color: #f8fafc;
 }
 
+/* Ensure Tailwind `text-white/*` opacity variants become readable in light mode
+   without overriding plain `text-white` used on colored backgrounds (e.g., active nav). */
+.light [class*="text-white/"] {
+  color: #0f172a !important;
+}
+
+/* Header-specific light-mode overrides to keep title/subtitle readable
+   (the header uses plain `text-white` on dark backgrounds in dark mode). */
+.light header {
+  /* Force a fully black header in light mode for high contrast */
+  background-color: #000000 !important;
+  border-bottom: 2px solid #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35) !important;
+}
+.light header h1, .light header .typo-dashboard-title {
+  color: #ffffff !important; /* white title on black header */
+  text-shadow: 0 1px 0 rgba(0,0,0,0.6) !important;
+}
+.light header p, .light header .text-\[11px\] {
+  color: #dbe7ff !important;
+}
+
+.light header [class*="text-white"] {
+  color: #ffffff !important;
+}
+
+/* Ensure footer text remains visible in light mode even when global .text-white/* overrides apply */
+.light footer {
+  background-color: #070B17 !important;
+}
+.light footer .text-white\/70,
+.light footer .text-white\/50,
+.light footer button {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+.light footer p {
+  color: rgba(255, 255, 255, 0.58) !important;
+}
+
+/* Ensure any `text-white` utilities used inside the header are overridden in light mode */
+.light header [class*="text-white"] {
+  color: var(--text) !important;
+}
+.light header [class*="text-white/"] {
+  color: var(--text-secondary) !important;
+}
+
 
 
 

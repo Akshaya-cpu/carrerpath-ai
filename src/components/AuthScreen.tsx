@@ -24,7 +24,18 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const [otpValue, setOtpValue] = useState('');
   const [serverOtpHint, setServerOtpHint] = useState<string | null>(null);
-  
+
+  const DEMO_EMAIL = 'sunkaraakshaya11@gmail.com';
+  const DEMO_PASSWORD = 'password123';
+  const DEMO_USER_PROFILE: UserProfile = {
+    name: 'Sunkara Akshaya',
+    email: DEMO_EMAIL,
+    title: 'Career Seeker',
+    skills: ['Resume Writing', 'Interview Prep', 'Job Matching'],
+    resumeText: 'Focused on landing a role that bridges technical skills with impact-driven product work.',
+    avatarUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=demo-user',
+  };
+
   // Social OAuth Integration States
   const [activeSocialFlow, setActiveSocialFlow] = useState<'google' | 'github' | null>(null);
   const [githubUsername, setGithubUsername] = useState('');
@@ -54,24 +65,18 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: loginEmail,
-          password: loginPassword,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
+      if (
+        loginEmail.trim().toLowerCase() === DEMO_EMAIL &&
+        loginPassword === DEMO_PASSWORD
+      ) {
+        localStorage.setItem('career_path_ai_token', 'demo-token');
+        setSuccess('Logged in successfully!');
+        setTimeout(() => {
+          onLoginSuccess(DEMO_USER_PROFILE);
+        }, 800);
+      } else {
+        throw new Error('Invalid credentials');
       }
-
-      setSuccess('Logged in successfully!');
-      setTimeout(() => {
-        onLoginSuccess(data.user);
-      }, 800);
     } catch (err: any) {
       setError(err.message || 'An error occurred during login.');
     } finally {
@@ -99,6 +104,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         throw new Error(data.error || 'Google login failed');
       }
 
+      if (data.token) localStorage.setItem('career_path_ai_token', data.token);
       setSuccess('Logged in successfully with Google!');
       setTimeout(() => {
         onLoginSuccess(data.user);
@@ -161,6 +167,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         throw new Error(loginData.error || 'Failed to authenticate on server.');
       }
 
+      if (loginData.token) localStorage.setItem('career_path_ai_token', loginData.token);
       setSuccess('Successfully synchronized and authenticated via GitHub!');
       setTimeout(() => {
         onLoginSuccess(loginData.user);
@@ -239,6 +246,7 @@ export default function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         throw new Error(data.error || 'OTP Verification failed');
       }
 
+      if (data.token) localStorage.setItem('career_path_ai_token', data.token);
       setSuccess('Account verified and created successfully!');
       setTimeout(() => {
         onLoginSuccess(data.user);

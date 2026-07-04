@@ -688,6 +688,54 @@ export const mockJobs: Job[] = [
       'Generous hybrid and asynchronous work arrangements'
     ]
   },
+  {
+    id: 'job-33',
+    title: 'Junior Product Analyst',
+    company: 'PulseScale',
+    location: 'Remote',
+    salary: '$65k - $80k',
+    category: 'Technical',
+    badge: 'Fresher',
+    logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCVfWAzGEZpNsdbF3M7JRIQaWQp5kD6ztUOlZy06_o44aFtJ5SSKM8kd5SkZYyiWBWHw3snuauPX144WvciY48hqmcze7fAS1eTZleC0XyYjLsKWBj4zLWhR5ll3GHkiXojqCRREZeby5BIqObFxvwjCOeyHc5_ivcR-j5FGTPccqki8bPf6ul4VMrw1wblK2C-tZagMN1VrNg-yyHDBOZ_M0Trm6Qc4BzeZveiRmC3PGOO3FcyulMH',
+    postedTime: '2 days ago',
+    experienceLevel: 'Fresher',
+    description: 'Join our product insight team and support roadmap decisions by analyzing customer behavior, dashboards, and feature usage metrics.',
+    requirements: [
+      '0-2 years of experience in analytics, product research, or business intelligence.',
+      'Comfort with SQL, Excel, or Google Sheets for data exploration.',
+      'Strong curiosity for customer behavior and product usage patterns.',
+      'Excellent written communication for clear stakeholder reports.'
+    ],
+    benefits: [
+      'Paid mentorship program with product managers',
+      'Remote-first work policy and flexible daily schedule',
+      'Quarterly learning stipend and skill-building workshops'
+    ]
+  },
+  {
+    id: 'job-34',
+    title: 'Junior Marketing Operations Coordinator',
+    company: 'BrandShift Media',
+    location: 'Los Angeles, CA',
+    salary: '$58k - $72k',
+    category: 'Marketing',
+    badge: 'Entry Level',
+    logoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCF4HZhNOOYK-_UzbALg8BMy2fNj40Y0pTpg7YZW_CQIGBLWa9t4pLWgoMLJ2O7dgCfLea_B5qMOIEnppptnoSAWy2Dm0BHtRiJVrxS8qc3dQt4aJ1PgasbgF2lUUcOk0L1L38UgLqxCGCTaUxAndZqLn87UOshILHue5vgqGyUD0ZcK8WOvnfQZmO8LlURDD4pEuUxP727-p7FmfF4tGBHpZBfqacPS6Sa5hMZbB_SP52L3GyDbnkO',
+    postedTime: '4 days ago',
+    experienceLevel: 'Fresher',
+    description: 'Support marketing operations by coordinating campaign launches, tracking digital performance, and helping optimize email and social workflows.',
+    requirements: [
+      '0-1 year of experience in marketing coordination, social media, or campaign support.',
+      'Familiarity with marketing automation tools like HubSpot, Mailchimp, or Klaviyo.',
+      'Analytical mindset with comfort reviewing campaign performance metrics.',
+      'Strong organizational skills and ability to manage multiple deadlines.'
+    ],
+    benefits: [
+      'Hybrid work schedule and modern office space in LA',
+      'Professional development sponsorship for marketing certifications',
+      'Monthly team wellness and creative collaboration events'
+    ]
+  },
 
   // === DIVERSE ADDITIONAL CAREER PATHWAYS ===
   {

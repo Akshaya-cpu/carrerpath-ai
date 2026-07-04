@@ -17,7 +17,6 @@ export default function ResumeParseModal({
   profile,
   onUpdateProfile
 }: ResumeParseModalProps) {
-  const [pasteText, setPasteText] = useState('');
   const [isParsing, setIsParsing] = useState(false);
   const [parseStep, setParseStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
@@ -26,6 +25,7 @@ export default function ResumeParseModal({
     title: string;
     skills: string[];
     summary: string;
+    fullText?: string;
     education?: string[];
     experience?: string[];
     projects?: string[];
@@ -52,53 +52,7 @@ export default function ResumeParseModal({
   };
 
   const handleTextParseSubmit = async () => {
-    const trimmed = pasteText.trim();
-    if (trimmed.length < 20) {
-      setErrorMessage('Please paste at least 20 characters of resume text to parse.');
-      return;
-    }
-
-    setIsParsing(true);
-    setErrorMessage('');
-    setParsedData(null);
-
-    const progress = startProgressInterval(5, () => {});
-
-    try {
-      const response = await fetch('/api/gemini/resume-parse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resumeText: trimmed })
-      });
-
-      clearInterval(progress);
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'The server returned an error during resume parsing.');
-      }
-
-      const data = await response.json();
-      if (!data.isValidResume) {
-        throw new Error('Our AI filter indicates this content does not resemble a professional resume, work history, or skill bio. Please paste real resume text.');
-      }
-
-      setParsedData({
-        name: data.name || 'Candidate',
-        title: data.title || 'Tech Professional',
-        skills: data.skills || [],
-        summary: data.summary || '',
-        education: data.education || [],
-        experience: data.experience || [],
-        projects: data.projects || [],
-        certifications: data.certifications || []
-      });
-      setParseStep(5);
-    } catch (err: any) {
-      clearInterval(progress);
-      setErrorMessage(err.message || 'An unexpected error occurred while parsing.');
-      setIsParsing(false);
-    }
+    setErrorMessage('Please upload a resume file instead of pasting text.');
   };
 
   const processFile = async (file: File) => {
@@ -197,7 +151,7 @@ export default function ResumeParseModal({
       name: parsedData.name,
       title: parsedData.title,
       skills: parsedData.skills,
-      resumeText: parsedData.summary,
+      resumeText: parsedData.fullText || parsedData.summary || '',
       education: parsedData.education || [],
       experience: parsedData.experience || [],
       projects: parsedData.projects || [],
@@ -249,7 +203,7 @@ export default function ResumeParseModal({
           {!isParsing && !parsedData ? (
             <>
               <p className="text-xs text-white/70 leading-relaxed font-sans">
-                Upload your resume document or paste raw work history. Our active parser will automatically filter out irrelevant attachments, catalog tech skills, and rewrite your biography summary.
+                Upload your resume document and we will automatically extract the text, parse it with AI, classify your experience, and apply the profile.
               </p>
 
               {/* Drag & Drop File Upload Zone */}
@@ -257,10 +211,10 @@ export default function ResumeParseModal({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-all duration-200 text-center relative ${
+                className={`border-2 border-dashed rounded-xl p-6 min-h-[180px] flex flex-col items-center justify-center transition-all duration-200 text-center relative ${
                   isDragging
-                    ? 'border-indigo-400 bg-indigo-500/10 scale-[1.01]'
-                    : 'border-white/10 bg-slate-950/20 hover:border-white/20 hover:bg-slate-950/30'
+                    ? 'border-indigo-400 bg-indigo-500/10 scale-[1.01] shadow-[0_0_20px_rgba(99,102,241,0.18)]'
+                    : 'border-white/20 bg-slate-900/60 hover:border-white/30 hover:bg-slate-900/80'
                 }`}
               >
                 <input
@@ -280,24 +234,6 @@ export default function ResumeParseModal({
                 </p>
               </div>
 
-              {/* Divider */}
-              <div className="flex items-center gap-3 py-1">
-                <div className="h-px bg-white/10 flex-grow" />
-                <span className="text-[9px] text-white/30 uppercase font-bold tracking-widest shrink-0">or paste manual history</span>
-                <div className="h-px bg-white/10 flex-grow" />
-              </div>
-
-              {/* Paste Textarea */}
-              <div className="space-y-1.5">
-                <textarea
-                  value={pasteText}
-                  onChange={(e) => setPasteText(e.target.value)}
-                  placeholder="Paste your biography summary, work history bullet points, or raw resume text here..."
-                  rows={5}
-                  className="w-full p-3 bg-slate-950/45 border border-white/10 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-white placeholder-white/20 font-sans resize-none"
-                />
-              </div>
-
               {errorMessage && (
                 <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
@@ -305,17 +241,6 @@ export default function ResumeParseModal({
                 </div>
               )}
 
-              {/* Submit paste text button */}
-              <div className="flex justify-end">
-                <button
-                  onClick={handleTextParseSubmit}
-                  disabled={pasteText.trim().length < 20}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow transition-all duration-150 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Parse Text Bio
-                </button>
-              </div>
             </>
           ) : isParsing && !parsedData ? (
             /* Progress State */
@@ -494,7 +419,6 @@ export default function ResumeParseModal({
                   onClick={() => {
                     setParsedData(null);
                     setIsParsing(false);
-                    setPasteText('');
                     setFileName(null);
                   }}
                   className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer py-1"

@@ -120,8 +120,8 @@ export default function AppliedTab({
       </div>
 
       {/* Stats Board */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="glass-card border-white/10 rounded-2xl p-4 flex flex-col justify-between space-y-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="glass-card border-white/10 rounded-2xl p-5 flex flex-col justify-between space-y-2">
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Total Applied</span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-extrabold text-white">{totalApplied}</span>
@@ -129,7 +129,7 @@ export default function AppliedTab({
           </div>
         </div>
 
-        <div className="glass-card border-white/10 rounded-2xl p-4 flex flex-col justify-between space-y-2">
+        <div className="glass-card border-white/10 rounded-2xl p-5 flex flex-col justify-between space-y-2">
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Interviews Scheduled</span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-extrabold text-purple-400">{interviewingCount}</span>
@@ -137,7 +137,7 @@ export default function AppliedTab({
           </div>
         </div>
 
-        <div className="glass-card border-white/10 rounded-2xl p-4 flex flex-col justify-between space-y-2">
+        <div className="glass-card border-white/10 rounded-2xl p-5 flex flex-col justify-between space-y-2">
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Offers Secured</span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-extrabold text-emerald-400">{offeredCount}</span>
@@ -145,7 +145,7 @@ export default function AppliedTab({
           </div>
         </div>
 
-        <div className="glass-card border-white/10 rounded-2xl p-4 flex flex-col justify-between space-y-2">
+        <div className="glass-card border-white/10 rounded-2xl p-5 flex flex-col justify-between space-y-2">
           <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Avg Skill Match</span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-extrabold text-indigo-300">{averageMatchScore}%</span>
@@ -155,7 +155,7 @@ export default function AppliedTab({
       </div>
 
       {/* Control Panel: Search & Filters */}
-      <div className="flex flex-col sm:flex-row items-stretch justify-between gap-3 bg-white/5 border border-white/10 rounded-2xl p-3.5 shadow-inner">
+      <div className="flex flex-col sm:flex-row items-stretch justify-between gap-4 bg-white/5 border border-white/10 rounded-2xl p-3.5 shadow-inner">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
           <input
@@ -429,7 +429,7 @@ export default function AppliedTab({
                 )}
 
                 {/* AI Coach Action Prep Widget */}
-                <div className="mt-4 pt-3.5 border-t border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="mt-4 pt-3.5 border-t border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
                     <span className="text-[11px] text-white/70">
@@ -512,3 +512,4 @@ export default function AppliedTab({
     </div>
   );
 }
+

@@ -23,12 +23,15 @@ export interface UserProfile {
   avatarUrl: string;
   autoApply?: boolean;
   phone?: string;
-  experienceLevel?: string;
+  experienceLevel?: 'Fresher' | 'Mid' | 'Senior' | string;
   targetSalary?: string;
   preferredLocation?: string;
   githubUrl?: string;
   linkedinUrl?: string;
   portfolioUrl?: string;
+  yearsOfExperience?: string;
+  degreeConcise?: string;
+  focus?: string;
   education?: any[];
   experience?: any[];
   projects?: any[];

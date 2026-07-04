@@ -127,12 +127,36 @@ export default function HomeTab({
   onUpdateProfile,
   isLoading = false
 }: HomeTabProps) {
+  // Small transient toast for user feedback (Coming Soon, actions, etc.)
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const showToast = (msg: string, ms = 2500) => {
+    setToastMessage(msg);
+    window.setTimeout(() => setToastMessage(''), ms);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All Jobs');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [salaryFilter, setSalaryFilter] = useState('All');
   const [locationType, setLocationType] = useState('All');
   const [experienceFilter, setExperienceFilter] = useState('All');
+
+  const normalizeJobExperienceLevel = (job: Job) => {
+    if (job.experienceLevel) return job.experienceLevel;
+    const title = job.title.toLowerCase();
+    if (/senior|sr\b|lead|principal|staff|manager|director|vp|head/.test(title)) return 'Senior';
+    if (/junior|fresher|associate|intern|graduate|entry|trainee|coordinator|assistant/.test(title)) return 'Fresher';
+    return 'Mid';
+  };
+
+  const normalizeProfileExperienceLevel = (profile: UserProfile) => {
+    const level = profile.experienceLevel?.trim();
+    if (!level) return null;
+    if (/\b(entry|entry level|fresher|junior|graduate|student|intern|internship|trainee|co-op)\b/i.test(level)) return 'Fresher';
+    if (/\b(senior|sr\.?|lead|principal|staff|architect|manager|director|vp|head|experienced|seasoned)\b/i.test(level)) return 'Senior';
+    return 'Mid';
+  };
+
+  const profileExperienceLevel = normalizeProfileExperienceLevel(profile);
 
   // Resume Upload / Search states
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -573,12 +597,14 @@ export default function HomeTab({
       }
     }
 
-    // 2. Search query matching (title, company, or requirements)
+    // 2. Search query matching (title, company, location, description, requirements)
     const normalizedQuery = searchQuery.toLowerCase();
     const matchesQuery = 
       job.title.toLowerCase().includes(normalizedQuery) ||
       job.company.toLowerCase().includes(normalizedQuery) ||
-      job.location.toLowerCase().includes(normalizedQuery);
+      job.location.toLowerCase().includes(normalizedQuery) ||
+      job.description.toLowerCase().includes(normalizedQuery) ||
+      job.requirements.some((req: string) => req.toLowerCase().includes(normalizedQuery));
     if (!matchesQuery) return false;
 
     // 3. Location type filter
@@ -598,12 +624,24 @@ export default function HomeTab({
     }
 
     // 5. Experience level filter
+    const jobExp = normalizeJobExperienceLevel(job);
     if (experienceFilter !== 'All') {
-      const jobExp = job.experienceLevel || (
-        /senior|lead|architect|principal|enterprise|staff|manager|director|counsel|attorney|executive/i.test(job.title) ? 'Senior' :
-        /junior|fresher|associate|intern|graduate|entry|coordinator|specialist/i.test(job.title) ? 'Fresher' : 'Mid'
-      );
       if (jobExp !== experienceFilter) return false;
+    } else if (profileExperienceLevel === 'Senior' && jobExp === 'Fresher') {
+      return false;
+    } else if (profileExperienceLevel === 'Fresher' && jobExp === 'Senior') {
+      return false;
+    }
+
+    // 6. No minimum match threshold filter; show all relevant jobs based on experience and profile.
+    try {
+      const candidateSkills = profile?.skills || [];
+      const hasEnoughSkills = candidateSkills.length >= 3 && profileExperienceLevel !== 'Fresher';
+      if (hasEnoughSkills) {
+        calculateMatchScore(job, candidateSkills, profile?.title, profile?.resumeText);
+      }
+    } catch (e) {
+      // ignore score errors and keep job
     }
 
     return true;
@@ -619,98 +657,20 @@ export default function HomeTab({
     return 0; // Maintain default data order
   });
 
+  // If there are no processed jobs due to filters, provide a fallback list of top-scored jobs
+  const displayedJobs = (processedJobs.length > 0)
+    ? processedJobs
+    : [...jobs]
+        .map(j => ({ j, score: calculateMatchScore(j, profile?.skills || [], profile?.title, profile?.resumeText) }))
+        .sort((a, b) => b.score - a.score)
+        .map(x => x.j)
+        .slice(0, 10);
+
   const categories = ['All Jobs', 'Technical', 'Product', 'Design', 'Marketing', 'Operations'];
   const activeAtsAnalysis = getAtsAnalysis(profile);
 
   return (
     <div className="space-y-6">
-      {/* Search Bar Section */}
-      <section className="relative" id="home-search-section">
-        <div className="relative flex items-center">
-          <Search className="absolute left-4 w-5 h-5 text-white/40 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search roles, companies, locations..."
-            className="w-full h-12 pl-12 pr-12 bg-white/5 border border-white/10 rounded-2xl focus:bg-white/10 focus:border-white/25 focus:ring-2 focus:ring-indigo-500/20 outline-none text-white placeholder-white/40 transition-all font-sans text-sm shadow-sm"
-            id="home-search-input"
-          />
-          <button
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={`absolute right-3 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-              showAdvancedFilters ? 'bg-indigo-500/20 text-indigo-300' : 'text-white/60 hover:bg-white/10'
-            }`}
-            aria-label="Toggle Advanced Filters"
-            id="home-filter-toggle-btn"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Expandable Advanced Filters Drawer */}
-        {showAdvancedFilters && (
-          <div className="mt-2.5 p-4 glass-card border-white/20 rounded-2xl shadow-xl space-y-3.5 animate-in slide-in-from-top-3 duration-150" id="advanced-filters-panel">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div>
-                <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">Salary Tier</label>
-                <select
-                  value={salaryFilter}
-                  onChange={(e) => setSalaryFilter(e.target.value)}
-                  className="w-full h-9 bg-slate-900/50 border border-white/10 rounded-lg text-xs px-2.5 outline-none text-white/90 focus:border-indigo-400"
-                >
-                  <option value="All" className="bg-slate-900">All Salary Ranges</option>
-                  <option value="150k+" className="bg-slate-900">$150k / year +</option>
-                  <option value="<150k" className="bg-slate-900">Under $150k / year</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">Workplace</label>
-                <select
-                  value={locationType}
-                  onChange={(e) => setLocationType(e.target.value)}
-                  className="w-full h-9 bg-slate-900/50 border border-white/10 rounded-lg text-xs px-2.5 outline-none text-white/90 focus:border-indigo-400"
-                >
-                  <option value="All" className="bg-slate-900">All Settings</option>
-                  <option value="Remote" className="bg-slate-900">Remote Only</option>
-                  <option value="Onsite" className="bg-slate-900">On-site / Hybrid</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">Experience Level</label>
-                <select
-                  value={experienceFilter}
-                  onChange={(e) => setExperienceFilter(e.target.value)}
-                  className="w-full h-9 bg-slate-900/50 border border-white/10 rounded-lg text-xs px-2.5 outline-none text-white/90 focus:border-indigo-400"
-                >
-                  <option value="All" className="bg-slate-900">All Experience Levels</option>
-                  <option value="Fresher" className="bg-slate-900">Entry Level / Fresher</option>
-                  <option value="Mid" className="bg-slate-900">Mid Level</option>
-                  <option value="Senior" className="bg-slate-900">Senior / Lead</option>
-                </select>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between pt-1 border-t border-white/10">
-              <span className="text-[11px] text-white/40 font-medium">
-                {processedJobs.length} active matching listing{processedJobs.length !== 1 && 's'} found
-              </span>
-              <button
-                onClick={() => {
-                  setSalaryFilter('All');
-                  setLocationType('All');
-                  setExperienceFilter('All');
-                  setSearchQuery('');
-                  setSelectedCategory('All Jobs');
-                }}
-                className="text-[10px] text-rose-400 hover:underline font-semibold"
-              >
-                Reset Filters
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
 
       {/* Grid container for Web Application Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -721,7 +681,7 @@ export default function HomeTab({
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="flex h-2 w-2 relative">
@@ -740,7 +700,7 @@ export default function HomeTab({
             </p>
           </div>
 
-          <div className="flex flex-col gap-2 shrink-0 justify-center">
+          <div className="flex flex-col gap-3 shrink-0 items-end">
             {/* Sort by Match Toggle */}
             <div className="flex items-center justify-end gap-2">
               <span className="text-xs text-white/50 font-medium">Sort by Match</span>
@@ -789,7 +749,7 @@ export default function HomeTab({
           {/* Progress Timeline for Real-Time Analysis */}
           <div className="grid grid-cols-3 gap-2 mt-1">
             {/* Stage 1: Text Extraction */}
-            <div className={`relative flex flex-col p-2.5 rounded-xl border transition-all duration-300 ${
+            <div className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-300 ${
               !isUploadingResume
                 ? 'bg-white/[0.02] border-white/5 opacity-50'
                 : uploadStep <= 2
@@ -811,7 +771,7 @@ export default function HomeTab({
             </div>
 
             {/* Stage 2: Skill Analysis */}
-            <div className={`relative flex flex-col p-2.5 rounded-xl border transition-all duration-300 ${
+            <div className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-300 ${
               !isUploadingResume
                 ? 'bg-white/[0.02] border-white/5 opacity-50'
                 : uploadStep < 3
@@ -835,7 +795,7 @@ export default function HomeTab({
             </div>
 
             {/* Stage 3: ATS Score Map */}
-            <div className={`relative flex flex-col p-2.5 rounded-xl border transition-all duration-300 ${
+            <div className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-300 ${
               !isUploadingResume
                 ? 'bg-white/[0.02] border-white/5 opacity-50'
                 : uploadStep < 6
@@ -861,26 +821,27 @@ export default function HomeTab({
         </div>
 
         {/* Drag & Drop File Upload Box */}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-300 relative overflow-hidden group ${
-            isDraggingFile
-              ? 'border-indigo-500 bg-indigo-500/10 scale-[0.99] shadow-[0_0_15px_rgba(99,102,241,0.2)]'
-              : 'border-[#2d3c52] bg-slate-900/40 hover:border-indigo-500/50 hover:bg-[#162033]/60'
-          }`}
-          id="resume-drop-zone"
-        >
-          <input
-            type="file"
-            id="home-resume-file"
-            className="hidden"
-            accept=".pdf,.docx,.doc,.txt"
-            onChange={handleFileChange}
-          />
-          
-          {isUploadingResume ? (
+        <div className="mb-4 lg:mb-6">
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-2xl p-8 md:p-10 text-center transition-all duration-300 relative overflow-hidden group ${
+              isDraggingFile
+                ? 'border-indigo-500 bg-indigo-500/10 scale-[1.01] shadow-[0_0_20px_rgba(99,102,241,0.25)]'
+                : 'border-white/10 bg-slate-950/30 hover:border-indigo-500/50 hover:bg-slate-950/50'
+            }`}
+            id="resume-drop-zone"
+          >
+            <input
+              type="file"
+              id="home-resume-file"
+              className="hidden"
+              accept=".pdf,.docx,.doc,.txt"
+              onChange={handleFileChange}
+            />
+            
+            {isUploadingResume ? (
             <div className="flex flex-col items-center justify-center py-4 space-y-3">
               <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
               <div>
@@ -902,7 +863,6 @@ export default function HomeTab({
             </div>
           ) : (
             <label htmlFor="home-resume-file" className="cursor-pointer flex flex-col items-center justify-center">
-              {/* Custom SVG/CSS Pipeline Illustration */}
               <div className="flex items-center justify-center gap-1.5 md:gap-3 mb-6 text-indigo-400 font-bold text-xs select-none bg-slate-950/40 p-3 rounded-xl border border-white/5 w-full max-w-[340px] mx-auto shadow-inner">
                 <div className="flex flex-col items-center gap-1">
                   <div className="w-9 h-9 rounded-lg bg-[#6366F1]/10 border border-[#6366F1]/20 flex items-center justify-center shadow-sm">
@@ -948,6 +908,13 @@ export default function HomeTab({
             </label>
           )}
         </div>
+        </div>
+          {/* Small inline toast for quick feedback inside HomeTab */}
+          {toastMessage && (
+            <div className="fixed top-28 right-6 z-50">
+              <div className="bg-black/80 text-white px-4 py-2 rounded-lg shadow-lg">{toastMessage}</div>
+            </div>
+          )}
 
         {/* Feedback Messages */}
         <AnimatePresence>
@@ -1080,13 +1047,13 @@ export default function HomeTab({
           )}
         </div>
 
-        {/* Empty State */}
-        {processedJobs.length === 0 ? (
-          <div className="p-12 text-center glass-card border-white/10 rounded-2xl shadow-sm">
+        {/* Empty State or Job List */}
+        {displayedJobs.length === 0 ? (
+          <div className="p-12 flex flex-col items-center justify-center glass-card border-white/10 rounded-2xl shadow-sm">
             <Briefcase className="w-10 h-10 mx-auto mb-3 text-white/30" />
-            <p className="font-semibold text-white text-sm">No jobs match your criteria</p>
+            <p className="font-semibold text-white text-sm">No jobs available right now</p>
             <p className="text-xs text-white/60 mt-1 max-w-sm mx-auto">
-              Try resetting your search query or advanced filter options to explore available opportunities.
+              We couldn't find suitable matches — try uploading a more detailed resume or relax filters.
             </p>
           </div>
         ) : (
@@ -1098,11 +1065,12 @@ export default function HomeTab({
                 <JobCardSkeleton />
               </>
             ) : (
-              processedJobs.map((job) => {
+              displayedJobs.map((job) => {
                 const isSaved = savedJobIds.includes(job.id);
                 const isApplied = appliedJobIds.includes(job.id);
                 const matchScore = calculateMatchScore(job, profile?.skills || [], profile?.title, profile?.resumeText);
                 const scoreStyle = getScoreStyle(matchScore);
+                const hasProfileData = (profile?.skills?.length || 0) > 0 || !!profile?.resumeText?.trim();
                 
                 // Skill match analytics based on parsed resume
                 const { matched, missing } = getMatchedAndMissingSkills(job, profile?.skills || []);
@@ -1163,10 +1131,12 @@ export default function HomeTab({
                     {/* Tags and Bookmark Box */}
                     <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {/* Hero Match Score Badge */}
-                      <span className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border shadow-md transition-all duration-200 group-hover:scale-105 ${scoreStyle.bg} ${scoreStyle.text} ${scoreStyle.border} ${scoreStyle.glow}`}>
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-                        <span className="text-xs font-black tracking-wide">{matchScore}% Match</span>
-                      </span>
+                      {hasProfileData && (
+                        <span className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border shadow-md transition-all duration-200 group-hover:scale-105 ${scoreStyle.bg} ${scoreStyle.text} ${scoreStyle.border} ${scoreStyle.glow}`}>
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                          <span className="text-xs font-black tracking-wide">{matchScore}% Match</span>
+                        </span>
+                      )}
 
                       {job.badge === 'New' && (
                         <span className="flex items-center gap-1 bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-indigo-500/30">
@@ -1284,3 +1254,7 @@ export default function HomeTab({
     </div>
   );
 }
+
+
+
+

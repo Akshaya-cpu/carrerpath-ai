@@ -148,7 +148,7 @@ export default function SavedTab({
       )}
 
       {savedJobs.length === 0 ? (
-        <div className="p-16 text-center glass-card border-white/10 rounded-3xl space-y-3.5 shadow-xl">
+        <div className="p-5 text-center glass-card border-white/10 rounded-3xl space-y-3.5 shadow-xl">
           <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 mx-auto border border-white/10">
             <Bookmark className="w-5 h-5" />
           </div>
@@ -232,3 +232,4 @@ export default function SavedTab({
     </div>
   );
 }
+

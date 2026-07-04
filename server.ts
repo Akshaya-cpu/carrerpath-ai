@@ -4,9 +4,14 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
+import authRouter from './src/server/auth';
+import jobsRouter from './src/server/jobs';
 // @ts-ignore
 import mammoth from 'mammoth';
 import { mockJobs } from './src/data/jobs';
+import { TECHNICAL_SKILLS_KEYWORDS, classifyResumeExperience } from './src/utils/resumeParser';
+// @ts-ignore
+import * as pdfParse from 'pdf-parse';
 
 dotenv.config();
 
@@ -14,6 +19,10 @@ dotenv.config();
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Auth routes (register / login / verify)
+app.use('/api/auth', authRouter);
+app.use('/api', jobsRouter);
 
 const PORT = 3000;
 
@@ -94,6 +103,11 @@ function getGeminiClient(): any {
         // Extract some mock context from prompt/contents if possible
         const promptText = JSON.stringify(args?.contents || '');
         const body: any = {};
+
+        const resumeTextMatch = promptText.match(/(?:Resume Text|Extracted Resume Text|Resume Content):\s*([\s\S]*)/i);
+        if (resumeTextMatch && resumeTextMatch[1]) {
+          body.resumeText = resumeTextMatch[1].trim();
+        }
         
         const titleMatch = promptText.match(/Title:\s*([^"\\\n]+)/i) || promptText.match(/Objective:\s*([^"\\\n]+)/i) || promptText.match(/Job Title:\s*([^"\\\n]+)/i);
         if (titleMatch) body.title = titleMatch[1].trim();
@@ -144,10 +158,184 @@ function isQuotaError(error: any): boolean {
   );
 }
 
+function normalizeResumeLine(line: string): string {
+  return line.replace(/\s+/g, ' ').trim();
+}
+
+function findResumeSection(text: string, sectionNames: string[]): string {
+  const lines = text.split(/\r?\n/).map(normalizeResumeLine).filter(Boolean);
+  const headingRegex = /^(summary|professional summary|executive summary|about me|profile|objective|experience|work experience|professional experience|employment history|education|skills|technical skills|projects|projects and achievements|certifications|licenses and certifications)$/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const current = lines[i].toLowerCase();
+    if (sectionNames.some((name) => current === name || current.startsWith(name + ':') || current.startsWith(name + ' -'))) {
+      const sectionLines: string[] = [];
+      for (let j = i + 1; j < Math.min(lines.length, i + 8); j++) {
+        const candidate = lines[j];
+        if (headingRegex.test(candidate)) break;
+        if (candidate) sectionLines.push(candidate);
+      }
+      if (sectionLines.length > 0) return sectionLines.join(' ');
+    }
+  }
+
+  return '';
+}
+
+function extractResumeTitle(text: string): string {
+  const lines = text.split(/\r?\n/).map(normalizeResumeLine).filter(Boolean);
+  const titlePatterns = [
+    /\b(senior|lead|staff|principal|junior|mid|entry level|entry-level)\s+(software|frontend|backend|full[- ]stack|product|data|devops|qa|cloud|platform|ui\/ux|ux|ui|web)\s+(engineer|developer|designer|analyst|specialist|manager)\b/i,
+    /\b(frontend|backend|full[- ]stack|software|product|data|devops|qa|cloud|platform|ui\/ux|ux|ui|web)\s+(engineer|developer|designer|analyst|manager|specialist)\b/i,
+    /\b(software|product|data|devops|qa|frontend|backend|full[- ]stack|ui\/ux|ux|ui|cloud)\s+(engineer|developer|designer|analyst|manager|specialist)\b/i
+  ];
+
+  for (const line of lines.slice(0, 20)) {
+    const trimmed = line.replace(/^[-•*]+\s*/, '');
+    if (trimmed.length < 3 || trimmed.length > 70) continue;
+    for (const pattern of titlePatterns) {
+      if (pattern.test(trimmed)) {
+        return trimmed;
+      }
+    }
+  }
+
+  if (/\bdesigner\b/i.test(text)) return 'Product Designer';
+  if (/\bdeveloper\b|\bengineer\b/i.test(text)) return 'Software Engineer';
+  return 'Tech Specialist';
+}
+
+function extractResumeSkills(text: string): string[] {
+  const lowerText = text.toLowerCase();
+  const foundSkills: string[] = [];
+  const skillDisplayMap: Record<string, string> = {
+    'javascript': 'JavaScript',
+    'typescript': 'TypeScript',
+    'python': 'Python',
+    'react': 'React',
+    'node.js': 'Node.js',
+    'nodejs': 'Node.js',
+    'tailwindcss': 'Tailwind CSS',
+    'tailwind': 'Tailwind CSS',
+    'sql': 'SQL',
+    'aws': 'AWS',
+    'docker': 'Docker',
+    'kubernetes': 'Kubernetes',
+    'git': 'Git',
+    'figma': 'Figma',
+    'mongodb': 'MongoDB',
+    'postgresql': 'PostgreSQL',
+    'next.js': 'Next.js',
+    'nextjs': 'Next.js'
+  };
+
+  for (const keyword of TECHNICAL_SKILLS_KEYWORDS) {
+    try {
+      const regex = new RegExp(keyword, 'i');
+      if (regex.test(lowerText)) {
+        const normalizedKeyword = keyword.toLowerCase();
+        const display = skillDisplayMap[normalizedKeyword] || keyword.charAt(0).toUpperCase() + keyword.slice(1);
+        if (!foundSkills.some((skill) => skill.toLowerCase() === display.toLowerCase())) {
+          foundSkills.push(display);
+        }
+      }
+    } catch {
+      // ignore invalid regex keywords
+    }
+  }
+
+  return foundSkills.slice(0, 12);
+}
+
+function extractResumeSummary(text: string): string {
+  const summaryText = findResumeSection(text, ['summary', 'professional summary', 'executive summary', 'about me', 'profile', 'objective']);
+  if (summaryText) return summaryText;
+
+  const paragraphs = text.split(/\n\s*\n/).map(normalizeResumeLine).filter(Boolean);
+  for (const paragraph of paragraphs) {
+    if (paragraph.length > 40 && paragraph.length < 280) {
+      return paragraph;
+    }
+  }
+
+  return 'A results-driven professional with strong technical depth, cross-functional collaboration experience, and a proven record of shipping robust products.';
+}
+
+function extractResumeEducation(text: string): Array<{ degree: string; school: string; year: string }> {
+  const educationText = findResumeSection(text, ['education', 'academic background', 'qualifications']);
+  if (!educationText) {
+    return [];
+  }
+
+  const lines = educationText.split(/\s{2,}|\n/).map(normalizeResumeLine).filter(Boolean).slice(0, 3);
+  return lines.map((line) => ({ degree: line, school: 'University / Institution', year: '' }));
+}
+
+function extractResumeExperience(text: string): Array<{ role: string; company: string; duration: string; description: string }> {
+  const experienceText = findResumeSection(text, ['experience', 'work experience', 'professional experience', 'employment history']);
+  if (!experienceText) {
+    return [];
+  }
+
+  const lines = experienceText.split(/\n/).map(normalizeResumeLine).filter(Boolean);
+  const experiences = lines.filter((line) => /\b(20|19)\d{2}\b/i.test(line) || /present/i.test(line)).slice(0, 3);
+  if (experiences.length > 0) {
+    return experiences.map((line) => ({ role: 'Professional Experience', company: 'Organization', duration: line, description: experienceText }));
+  }
+
+  return [{ role: 'Professional Experience', company: 'Organization', duration: 'Recent Role', description: experienceText }];
+}
+
+function extractResumeProjects(text: string): Array<{ name: string; description: string; technologies: string[] }> {
+  const projectsText = findResumeSection(text, ['projects', 'projects and achievements']);
+  if (!projectsText) {
+    return [];
+  }
+
+  return [{ name: 'Project Highlights', description: projectsText, technologies: extractResumeSkills(text) }];
+}
+
+function extractResumeCertifications(text: string): string[] {
+  const certText = findResumeSection(text, ['certifications', 'licenses and certifications']);
+  if (!certText) return [];
+  return certText.split(/,|\n/).map((item) => normalizeResumeLine(item)).filter(Boolean).slice(0, 6);
+}
+
+function buildResumeParseFallback(rawText: string, fallbackName = 'Candidate', fallbackTitle = 'Tech Specialist') {
+  const parsedText = rawText || '';
+  const title = extractResumeTitle(parsedText) || fallbackTitle;
+  const skills = extractResumeSkills(parsedText);
+  const summary = extractResumeSummary(parsedText);
+  const education = extractResumeEducation(parsedText);
+  const experience = extractResumeExperience(parsedText);
+  const projects = extractResumeProjects(parsedText);
+  const certifications = extractResumeCertifications(parsedText);
+  const classification = classifyResumeExperience(parsedText, experience as any[]);
+
+  return {
+    name: fallbackName,
+    title,
+    skills,
+    summary,
+    education,
+    experience,
+    projects,
+    certifications,
+    fullText: parsedText,
+    isValidResume: true,
+    employment_type: classification.employmentType,
+    experience_years: classification.experienceYears,
+    experience_months: classification.experienceMonths,
+    work_experience: classification.workExperience,
+    internships: classification.internships,
+    _isDemoFallback: true
+  };
+}
+
 function getFallbackResponse(endpoint: string, body: any): any {
   console.log(`[PREMIUM FALLBACK] Serving smart simulation fallback for endpoint: ${endpoint}`);
   
-  const name = body.name || 'Professional User';
+  const name = body.name || 'Senior Developer';
   const title = body.title || body.targetJobTitle || body.jobTitle || 'Tech Specialist';
   const skills = Array.isArray(body.skills) ? body.skills : (body.skills ? String(body.skills).split(',') : ['React', 'TypeScript', 'Tailwind CSS', 'Node.js']);
   
@@ -200,37 +388,16 @@ function getFallbackResponse(endpoint: string, body: any): any {
       };
 
     case 'resume-parse':
-    case 'resume-parse-file':
+    case 'resume-parse-file': {
+      const fallbackResume = buildResumeParseFallback(body.resumeText || body.rawText || body.text || '', body.name || name, title);
       return {
-        name: name,
+        ...fallbackResume,
         email: body.email || 'alex.mercer@example.com',
         phone: '+1 (555) 019-2834',
-        title: title,
-        profileSummary: `Highly creative and results-driven specialist with 5+ years of experience engineering interactive interfaces and robust full-stack architectures. Expert at leveraging ${skills.slice(0, 3).join(' and ')} to solve user needs.`,
-        skills: [...new Set([...skills, 'RESTful APIs', 'Git', 'Agile Methodologies', 'System Architecture'])],
-        experience: [
-          {
-            role: `Senior ${title}`,
-            company: 'Nebula Systems',
-            duration: '2023 - Present',
-            description: `Led frontend architecture and layout design. Redesigned primary corporate dashboard, reducing initial bundle sizes by 25% and accelerating loading times by 35%.`
-          },
-          {
-            role: 'Software Engineer & Designer',
-            company: 'CreativeFlow Solutions',
-            duration: '2021 - 2023',
-            description: `Collaborated directly with product and backend engineering squads to design and develop elegant component libraries and high-fidelity wireframes.`
-          }
-        ],
-        education: [
-          {
-            degree: 'B.S. in Computer Science & Interactive Media',
-            school: 'State Technical University',
-            year: '2020'
-          }
-        ],
+        profileSummary: fallbackResume.summary,
         _isDemoFallback: true
       };
+    }
 
     case 'interview-prep':
       return {
@@ -687,10 +854,11 @@ Please extract:
 4. A polished, cohesive professional biography / executive summary summarizing their career journey, key experience, and top skills (2-3 sentences, written in the first or third person as appropriate).
    CRITICAL: The summary must be standard narrative prose. Do NOT include bulleted lists, lists of skills, or fragments.
 5. Determine if this text is actually a professional resume/CV, work experience summary, or developer/creative profile. If the document is completely unrelated (e.g., bus/train/plane ticket, utility bill, road transport receipt, invoice, book chapter, random homework, menu card, grocery list, or generic text without work/skill history), set isValidResume to false. Otherwise, set it to true.
-6. An array of education items (each containing degree, school, and year).
-7. An array of experience items (each containing role, company, duration, and description of responsibilities/achievements).
-8. An array of major projects (each containing name, description, and technologies as an array of strings).
-9. An array of professional certifications or credentials (as simple strings, or empty array if none found).`;
+6. Classify the candidate as 'Fresher' if the resume contains only internships, training, academic projects, certifications, or no full-time employment. Classify as 'Experienced' if there is at least one full-time job. Count experience only from full-time jobs; internships and training must never count as work experience.
+7. An array of education items (each containing degree, school, and year).
+8. An array of experience items (each containing role, company, duration, and description of responsibilities/achievements).
+9. An array of major projects (each containing name, description, and technologies as an array of strings).
+10. An array of professional certifications or credentials (as simple strings, or empty array if none found).`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.5-flash',
@@ -741,7 +909,7 @@ Please extract:
             },
             certifications: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Extracted certifications or empty array' }
           },
-          required: ['name', 'title', 'skills', 'summary', 'isValidResume', 'education', 'experience', 'projects', 'certifications']
+          required: ['name', 'title', 'skills', 'summary', 'isValidResume', 'employment_type', 'experience_years', 'experience_months', 'work_experience', 'internships', 'education', 'experience', 'projects', 'certifications']
         }
       }
     });
@@ -785,6 +953,11 @@ function extractLegacyDocText(buffer: Buffer): string {
     .join('\n');
 }
 
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  const data = await pdfParse(buffer);
+  return (data.text || '').trim();
+}
+
 // 4.1. Resume File Parser API (supports PDFs, Word Docs, text, etc. via Gemini input)
 app.post('/api/gemini/resume-parse-file', async (req, res) => {
   try {
@@ -797,11 +970,12 @@ app.post('/api/gemini/resume-parse-file', async (req, res) => {
     const ai = getGeminiClient();
     const isDocx = mimeType.includes('officedocument') || fileName?.endsWith('.docx');
     const isDoc = mimeType.includes('msword') || fileName?.endsWith('.doc');
+    const isPdf = mimeType.includes('pdf') || fileName?.endsWith('.pdf');
+
+    let extractedText = '';
+    const buffer = Buffer.from(fileBase64, 'base64');
 
     if (isDocx || isDoc) {
-      let extractedText = '';
-      const buffer = Buffer.from(fileBase64, 'base64');
-
       if (isDocx) {
         try {
           const result = await mammoth.extractRawText({ buffer });
@@ -817,7 +991,14 @@ app.post('/api/gemini/resume-parse-file', async (req, res) => {
       if (!extractedText || extractedText.trim().length < 10) {
         throw new Error('Could not extract any readable text from this Word Document.');
       }
+    } else if (isPdf) {
+      extractedText = await extractPdfText(buffer);
+      if (!extractedText || extractedText.trim().length < 10) {
+        throw new Error('Could not extract any readable text from this PDF.');
+      }
+    }
 
+    if (extractedText) {
       const response = await ai.models.generateContent({
         model: 'gemini-3.5-flash',
         contents: `Analyze the following extracted text from a resume and parse key professional profile information.
@@ -836,10 +1017,11 @@ Please extract:
    CRITICAL: The summary must be standard narrative prose. Do NOT include bulleted lists, lists of skills, or fragments.
 5. Return the exact provided extracted text under fullText.
 6. Determine if this text is actually a professional resume/CV, work experience summary, or developer/creative profile. If the document is completely unrelated (e.g., bus/train/plane ticket, utility bill, road transport receipt, invoice, book chapter, random homework, menu card, grocery list, or generic text without work/skill history), set isValidResume to false. Otherwise, set it to true.
-7. An array of education items (each containing degree, school, and year).
-8. An array of experience items (each containing role, company, duration, and description of responsibilities/achievements).
-9. An array of major projects (each containing name, description, and technologies as an array of strings).
-10. An array of professional certifications or credentials (as simple strings, or empty array if none found).`,
+7. Classify the candidate as 'Fresher' if the resume contains only internships, training, academic projects, certifications, or no full-time employment. Classify as 'Experienced' if there is at least one full-time job. Count experience only from full-time jobs; internships and training must never count as work experience.
+8. An array of education items (each containing degree, school, and year).
+9. An array of experience items (each containing role, company, duration, and description of responsibilities/achievements).
+10. An array of major projects (each containing name, description, and technologies as an array of strings).
+11. An array of professional certifications or credentials (as simple strings, or empty array if none found).`,
         config: {
           responseMimeType: 'application/json',
           responseSchema: {
@@ -851,6 +1033,33 @@ Please extract:
               summary: { type: Type.STRING, description: 'Polished 2-3 sentence biography summary' },
               fullText: { type: Type.STRING, description: 'The complete extracted plain-text or parsed text transcript of the resume content' },
               isValidResume: { type: Type.BOOLEAN, description: 'Whether the text is a valid professional resume or CV' },
+              employment_type: { type: Type.STRING, description: 'Fresher or Experienced based on full-time employment only' },
+              experience_years: { type: Type.INTEGER, description: 'Years of full-time work experience only' },
+              experience_months: { type: Type.INTEGER, description: 'Additional months of full-time work experience only' },
+              work_experience: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    role: { type: Type.STRING },
+                    company: { type: Type.STRING },
+                    duration: { type: Type.STRING },
+                    description: { type: Type.STRING }
+                  }
+                }
+              },
+              internships: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    role: { type: Type.STRING },
+                    company: { type: Type.STRING },
+                    duration: { type: Type.STRING },
+                    description: { type: Type.STRING }
+                  }
+                }
+              },
               education: {
                 type: Type.ARRAY,
                 items: {
@@ -897,7 +1106,18 @@ Please extract:
         throw new Error('Gemini returned an empty response.');
       }
 
-      return res.json(JSON.parse(resultText));
+      const parsedPayload = JSON.parse(resultText);
+      const classification = classifyResumeExperience(extractedText, parsedPayload.experience || []);
+
+      return res.json({
+        ...parsedPayload,
+        fullText: extractedText,
+        employment_type: classification.employmentType,
+        experience_years: classification.experienceYears,
+        experience_months: classification.experienceMonths,
+        work_experience: classification.workExperience,
+        internships: classification.internships
+      });
     }
 
     const filePart = {
@@ -938,6 +1158,33 @@ Please extract:
             summary: { type: Type.STRING, description: 'Polished 2-3 sentence biography summary' },
             fullText: { type: Type.STRING, description: 'The complete extracted plain-text or parsed text transcript of the resume content' },
             isValidResume: { type: Type.BOOLEAN, description: 'Whether the text is a valid professional resume or CV' },
+            employment_type: { type: Type.STRING, description: 'Fresher or Experienced based on full-time employment only' },
+            experience_years: { type: Type.INTEGER, description: 'Years of full-time work experience only' },
+            experience_months: { type: Type.INTEGER, description: 'Additional months of full-time work experience only' },
+            work_experience: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  role: { type: Type.STRING },
+                  company: { type: Type.STRING },
+                  duration: { type: Type.STRING },
+                  description: { type: Type.STRING }
+                }
+              }
+            },
+            internships: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  role: { type: Type.STRING },
+                  company: { type: Type.STRING },
+                  duration: { type: Type.STRING },
+                  description: { type: Type.STRING }
+                }
+              }
+            },
             education: {
               type: Type.ARRAY,
               items: {
