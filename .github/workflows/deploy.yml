@@ -1,0 +1,32 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build and Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository content so the workflow can access the code.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Set up Node.js 22 for the build environment.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # Install project dependencies using npm.
+      - name: Install dependencies
+        run: npm install
+
+      # Build the Vite React app; fail the workflow if the build fails.
+      - name: Build project
+        run: npm run build
