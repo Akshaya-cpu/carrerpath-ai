@@ -26,6 +26,9 @@ export default function AICoachBubble({ profile }: AICoachBubbleProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
+  const [isPremium, setIsPremium] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && localStorage.getItem('careerpath_premium_pro') === 'true';
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Voice Input Speech Recognition States
@@ -94,7 +97,29 @@ export default function AICoachBubble({ profile }: AICoachBubbleProps) {
     }
   }, [messages, isTyping]);
 
+  useEffect(() => {
+    const updatePremium = () => {
+      setIsPremium(typeof window !== 'undefined' && localStorage.getItem('careerpath_premium_pro') === 'true');
+    };
+
+    updatePremium();
+    window.addEventListener('storage', updatePremium);
+    return () => window.removeEventListener('storage', updatePremium);
+  }, []);
+
   const handleSendMessage = async (textToSend?: string) => {
+    if (!isPremium) {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `locked-${Date.now()}`,
+          role: 'model',
+          content: 'CareerPath AI Coach is available only for premium subscribers. Upgrade to Premium to unlock this feature.'
+        }
+      ]);
+      return;
+    }
+
     const text = (textToSend || input).trim();
     if (!text) return;
 
@@ -297,7 +322,8 @@ export default function AICoachBubble({ profile }: AICoachBubbleProps) {
                       <button
                         key={idx}
                         onClick={() => handleQuickPrompt(p)}
-                        className="p-2.5 bg-white/5 hover:bg-indigo-950/25 border border-white/5 hover:border-indigo-500/20 rounded-xl text-left text-[11px] text-white/80 hover:text-white transition-all cursor-pointer flex justify-between items-center group font-medium"
+                        disabled={!isPremium}
+                        className={`p-2.5 rounded-xl text-left text-[11px] transition-all flex justify-between items-center group font-medium ${isPremium ? 'bg-white/5 hover:bg-indigo-950/25 border border-white/5 hover:border-indigo-500/20 text-white/80 hover:text-white cursor-pointer' : 'bg-white/5 border border-white/10 text-white/35 cursor-not-allowed'}`}
                       >
                         <span className="line-clamp-1">{p}</span>
                         <ArrowRight className="w-3.5 h-3.5 text-white/30 group-hover:text-indigo-400 transform group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
@@ -314,12 +340,15 @@ export default function AICoachBubble({ profile }: AICoachBubbleProps) {
               <button
                 type="button"
                 onClick={toggleListening}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 border ${
-                  isListening
+                disabled={!isPremium}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0 border ${
+                  !isPremium
+                    ? 'bg-white/10 border-white/10 text-white/40 cursor-not-allowed'
+                    : isListening
                     ? 'bg-rose-500/20 border-rose-500 text-rose-400 shadow-[0_0_12px_rgba(239,68,68,0.4)] animate-pulse'
                     : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10'
                 }`}
-                title={isListening ? 'Listening... click to stop' : 'Voice Input (dictation)'}
+                title={!isPremium ? 'Premium feature - upgrade to use voice input' : isListening ? 'Listening... click to stop' : 'Voice Input (dictation)'}
               >
                 {isListening ? <Mic className="w-4 h-4 text-rose-400" /> : <MicOff className="w-4 h-4" />}
               </button>
@@ -329,13 +358,14 @@ export default function AICoachBubble({ profile }: AICoachBubbleProps) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder={isListening ? "Listening... speak now..." : "Type your career question..."}
-                className="flex-1 h-9 px-3 bg-white/5 border border-white/10 rounded-xl outline-none text-xs text-white placeholder-white/30 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all font-sans"
+                placeholder={isListening ? "Listening... speak now..." : isPremium ? "Type your career question..." : "Premium only. Upgrade to unlock the coach."}
+                disabled={!isPremium}
+                className="flex-1 h-9 px-3 bg-white/5 border border-white/10 rounded-xl outline-none text-xs text-white placeholder-white/30 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all font-sans disabled:cursor-not-allowed disabled:opacity-70"
               />
               <button
                 onClick={() => handleSendMessage()}
-                disabled={!input.trim() || isTyping}
-                className="w-9 h-9 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0"
+                disabled={!isPremium || !input.trim() || isTyping}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0 ${isPremium ? 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
               >
                 <Send className="w-4 h-4" />
               </button>

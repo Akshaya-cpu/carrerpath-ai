@@ -11,7 +11,7 @@ import mammoth from 'mammoth';
 import { mockJobs } from './src/data/jobs';
 import { TECHNICAL_SKILLS_KEYWORDS, classifyResumeExperience } from './src/utils/resumeParser';
 // @ts-ignore
-import pdfParse from 'pdf-parse';
+import * as pdfParse from 'pdf-parse';
 
 dotenv.config();
 
@@ -954,7 +954,8 @@ function extractLegacyDocText(buffer: Buffer): string {
 }
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  const data = await pdfParse(buffer);
+  const parser = (pdfParse as any).default || pdfParse;
+  const data = await parser(buffer);
   return (data.text || '').trim();
 }
 

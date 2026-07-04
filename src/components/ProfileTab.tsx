@@ -1287,7 +1287,11 @@ export default function ProfileTab({
       localStorage.setItem(`career_path_ai_roadmap_${profile.email}`, JSON.stringify(data));
     } catch (err: any) {
       console.error('Roadmap error:', err);
-      setRoadmapError(err.message || 'An error occurred during roadmap generation.');
+      const message = typeof err?.message === 'string' ? err.message : '';
+      const roadmapMessage = message.toLowerCase().includes('failed to fetch')
+        ? 'Unable to generate the roadmap right now. Please check your network connection and try again.'
+        : message || 'An error occurred during roadmap generation.';
+      setRoadmapError(roadmapMessage);
     } finally {
       clearInterval(stepInterval);
       setIsGeneratingRoadmap(false);
@@ -1522,6 +1526,11 @@ export default function ProfileTab({
   };
 
   const handleRunAudit = async () => {
+    if (!isPremium) {
+      setAuditError('CareerPath AI Resume Review is a premium-only feature. Upgrade to Premium in the Subscription tab to run this action.');
+      return;
+    }
+
     setIsAuditing(true);
     setAuditError('');
     setAuditResult(null);
@@ -1560,7 +1569,11 @@ export default function ProfileTab({
       setAuditResult(data);
     } catch (err: any) {
       console.error(err);
-      setAuditError(err.message || 'Unable to review resume. Please try again later.');
+      const message = typeof err?.message === 'string' ? err.message : '';
+      const auditMessage = message.toLowerCase().includes('failed to fetch')
+        ? 'Unable to review resume right now. Please check your network connection and try again.'
+        : message || 'Unable to review resume. Please try again later.';
+      setAuditError(auditMessage);
     } finally {
       clearInterval(stepInterval);
       setIsAuditing(false);
@@ -1605,7 +1618,13 @@ export default function ProfileTab({
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveSubTab(tab.id as any)}
+              onClick={() => {
+                if (tab.id === 'coaching' && !isPremium) {
+                  setActiveSubTab('subscription');
+                } else {
+                  setActiveSubTab(tab.id as any);
+                }
+              }}
               className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl transition-all duration-200 shrink-0 border cursor-pointer ${
                 isActive
                   ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-md shadow-indigo-500/10'
@@ -2338,18 +2357,38 @@ export default function ProfileTab({
           </div>
         </div>
 
-        {auditError && (
+        {!isPremium ? (
+          <div className="mt-6 p-5 rounded-3xl border border-amber-500/20 bg-amber-500/10 text-amber-100 shadow-inner">
+            <h4 className="font-bold text-sm mb-2">Premium Feature</h4>
+            <p className="text-[11px] text-amber-100/90 leading-relaxed">
+              AI Resume Review Coach is available only for premium subscribers. Upgrade to Premium in the Subscription tab to unlock the coach, audit your profile, and access dedicated Gemini AI features.
+            </p>
+            <button
+              onClick={() => setActiveSubTab('subscription')}
+              className="mt-4 inline-flex items-center justify-center rounded-xl bg-amber-500 px-4 py-2 text-[11px] font-bold text-slate-950 hover:bg-amber-400 transition-all"
+            >
+              Go to Subscription
+            </button>
+          </div>
+        ) : (
+          <>
+            {auditError && (
           <div className="p-3 bg-rose-500/10 text-rose-400 rounded-xl text-xs flex items-start gap-2 border border-rose-500/20">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{auditError}</span>
           </div>
         )}
 
-        <div className="flex items-center gap-4 relative z-10">
+        <div className="flex flex-col gap-3 relative z-10">
+          {!isPremium && (
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-100 text-[11px]">
+              CareerPath AI Resume Review is a premium-only feature. Upgrade to Premium in the Subscription tab to enable this coaching action.
+            </div>
+          )}
           <button
             onClick={handleRunAudit}
-            disabled={isAuditing}
-            className="h-10 px-5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm hover:shadow-md transition-all duration-150 disabled:opacity-75"
+            disabled={isAuditing || !isPremium}
+            className={`h-10 px-5 transition-all duration-150 rounded-xl flex items-center gap-1.5 shadow-sm ${isPremium ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-md' : 'bg-white/10 text-white/40 border border-white/10 cursor-not-allowed'}`}
           >
             {isAuditing ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3248,240 +3287,116 @@ export default function ProfileTab({
 
       {activeSubTab === 'tools' && (
         <>
-          {/* 📧 Email Integration & Daily Digest Service Section */}
-          <div className="glass-card bg-slate-900/40 border-white/10 rounded-2xl p-5 shadow-xl space-y-4 relative overflow-hidden" id="email-digest-section">
+          <div className="glass-card bg-slate-900/40 border-white/10 rounded-2xl p-5 shadow-xl space-y-4 relative overflow-hidden" id="resume-versions-section">
         <div className="absolute right-0 top-0 translate-y-[-10px] translate-x-10 w-36 h-36 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
         
         <div className="flex gap-4 items-start relative z-10">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-            <Mail className="w-5.5 h-5.5" />
+            <FileText className="w-5.5 h-5.5" />
           </div>
-          <div className="space-y-1 flex-1">
+          <div className="space-y-1">
             <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
-              Daily Email Digest & Integration Service
-              <span className="bg-indigo-500/20 text-indigo-300 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-indigo-500/30">Email Enabled</span>
+              Resume ATS Score Analyzer
+              <span className="bg-indigo-500/20 text-indigo-300 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-indigo-500/30">ATS Optimization</span>
             </h3>
-            <p className="text-xs text-white/60">
-              Trigger automated daily job summary reports and scheduled interview reminders directly to your inbox.
+            <p className="text-xs text-white/70 leading-relaxed max-w-md">
+              Upload your resume, parse skills, and instantly calculate your ATS compatibility score to optimize your job application readiness!
             </p>
           </div>
         </div>
 
-        {/* Status indicator and quick settings */}
-        <div className="bg-white/5 border border-white/5 rounded-xl p-4 space-y-3 relative z-10 font-sans">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-white/70">Recipient Address:</span>
-            <span className="text-xs font-mono font-bold text-indigo-300">{profile.email}</span>
+        {/* Upload area */}
+        <div className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-3 relative z-10">
+          <h4 className="font-bold text-[11px] text-white/60 uppercase tracking-wider flex items-center gap-1.5">
+            <Plus className="w-4 h-4 text-indigo-400" />
+            Parse & Analyze Your Resume
+          </h4>
+
+          {/* Drag and Drop Zone */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center transition-all duration-200 text-center relative ${
+              isDraggingFile
+                ? 'border-indigo-400 bg-indigo-500/10 scale-[1.01]'
+                : 'border-white/10 bg-slate-950/20 hover:border-white/25 hover:bg-slate-950/35'
+            }`}
+          >
+            <input
+              type="file"
+              onChange={handleFileChange}
+              accept=".pdf,.txt,.docx,.doc"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+              disabled={isCreatingVersion}
+            />
+            
+            <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 mb-2">
+              <Upload className="w-5 h-5" />
+            </div>
+            
+            <p className="text-xs font-semibold text-white">
+              Drag & drop your resume file (.pdf, .docx, .doc, .txt) here
+            </p>
+            <p className="text-[10px] text-white/40 mt-1">
+              or click to browse your local files
+            </p>
+            <div className="mt-2.5 flex gap-1.5 justify-center text-[9px] text-white/30 font-mono">
+              <span className="px-1.5 py-0.5 bg-white/5 rounded border border-white/5">PDF</span>
+              <span className="px-1.5 py-0.5 bg-white/5 rounded border border-white/5">DOCX</span>
+              <span className="px-1.5 py-0.5 bg-white/5 rounded border border-white/5">DOC</span>
+              <span className="px-1.5 py-0.5 bg-white/5 rounded border border-white/5">TXT</span>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between border-t border-white/5 pt-3">
-            <div className="space-y-0.5">
-              <span className="text-xs font-semibold text-white block">Simulate Automated Daily Trigger</span>
-              <span className="text-[10px] text-white/45 block">Automatically queues reports to send daily at 9:00 AM UTC.</span>
+          <div className="flex items-center gap-3 py-1">
+            <div className="h-px bg-white/10 flex-grow" />
+            <span className="text-[9px] text-white/30 uppercase font-bold tracking-widest shrink-0">OR Paste Text Manually</span>
+            <div className="h-px bg-white/10 flex-grow" />
+          </div>
+
+          <div className="grid grid-cols-1 gap-2.5">
+            <textarea
+              value={newVersionTextInput}
+              onChange={(e) => setNewVersionTextInput(e.target.value)}
+              placeholder="Paste the raw text of your updated resume or work history here (min 20 characters) to parse skills and calculate ATS score..."
+              rows={4}
+              className="w-full p-3 bg-slate-950/45 border border-white/10 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-white placeholder-white/20 font-sans resize-none"
+            />
+          </div>
+
+          {versionError && (
+            <div className="p-2.5 bg-rose-500/10 text-rose-400 rounded-lg text-xs flex items-start gap-1.5 border border-rose-500/20">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{versionError}</span>
             </div>
+          )}
+
+          {versionSuccess && (
+            <div className="p-2.5 bg-emerald-500/10 text-emerald-300 rounded-lg text-xs flex items-start gap-1.5 border border-emerald-500/20">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+              <span>{versionSuccess}</span>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-1">
             <button
-              onClick={() => handleToggleAutoTrigger(!autoTriggerDaily)}
-              className={`w-10 h-5.5 rounded-full p-0.5 transition-colors cursor-pointer ${
-                autoTriggerDaily ? 'bg-indigo-600' : 'bg-white/10'
-              }`}
+              onClick={handleCreateNewVersion}
+              disabled={isCreatingVersion || !newVersionTextInput.trim()}
+              className="h-8 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow transition-all duration-150 cursor-pointer"
             >
-              <div
-                className={`w-4.5 h-4.5 bg-white rounded-full shadow-md transform transition-transform ${
-                  autoTriggerDaily ? 'translate-x-4.5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* Collapsible Advanced SMTP Settings */}
-        <div className="border border-white/5 rounded-xl overflow-hidden relative z-10">
-          <button
-            onClick={() => setShowSmtpSettings(!showSmtpSettings)}
-            className="w-full bg-white/5 hover:bg-white/10 transition-all p-3.5 flex justify-between items-center text-xs text-white/85 font-semibold focus:outline-none"
-          >
-            <div className="flex items-center gap-2">
-              <RefreshCw className={`w-3.5 h-3.5 text-indigo-400 ${showSmtpSettings ? 'animate-spin' : ''}`} />
-              <span>Advanced Custom SMTP Server Settings</span>
-            </div>
-            {showSmtpSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-
-          {showSmtpSettings && (
-            <form onSubmit={handleSaveSmtpSettings} className="bg-slate-950/20 border-t border-white/5 p-4 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">SMTP Host</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. smtp.gmail.com"
-                    value={smtpConfig.host || ''}
-                    onChange={(e) => setSmtpConfig({ ...smtpConfig, host: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">SMTP Port</label>
-                  <input
-                    type="number"
-                    placeholder="587"
-                    value={smtpConfig.port || ''}
-                    onChange={(e) => setSmtpConfig({ ...smtpConfig, port: e.target.value ? Number(e.target.value) : undefined })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">SMTP Username</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. user@gmail.com"
-                    value={smtpConfig.user || ''}
-                    onChange={(e) => setSmtpConfig({ ...smtpConfig, user: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">SMTP Password</label>
-                  <input
-                    type="password"
-                    placeholder="••••••••••••••"
-                    value={smtpConfig.pass || ''}
-                    onChange={(e) => setSmtpConfig({ ...smtpConfig, pass: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-white/40">Sender Display Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. CareerPath AI Daily Digest"
-                    value={smtpConfig.fromName || ''}
-                    onChange={(e) => setSmtpConfig({ ...smtpConfig, fromName: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-4">
-                <span className="text-[10px] text-white/35 italic">Leave empty to use built-in simulated SMTP sandbox.</span>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition-all cursor-pointer"
-                >
-                  Save Configuration
-                </button>
-              </div>
-
-              {smtpSaveSuccess && (
-                <div className="p-2 bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 rounded-lg text-[10px] font-sans text-center animate-in fade-in">
-                  SMTP Configuration Saved Successfully!
-                </div>
+              {isCreatingVersion ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Parsing Resume & Scoring...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Upload & Score ATS
+                </>
               )}
-            </form>
-          )}
-        </div>
-
-        {/* Primary Action Trigger Button */}
-        <div className="pt-2 space-y-3 relative z-10">
-          <button
-            onClick={handleTriggerEmailDigest}
-            disabled={isSendingDigest}
-            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.99] cursor-pointer"
-          >
-            {isSendingDigest ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Compiling Digest & Sending...</span>
-              </>
-            ) : (
-              <>
-                <Mail className="w-4 h-4" />
-                <span>Trigger & Send Daily Digest Email Now</span>
-              </>
-            )}
-          </button>
-
-          {digestSuccessMsg && (
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 rounded-xl text-xs font-sans text-center animate-in slide-in-from-top-1">
-              🎉 {digestSuccessMsg}
-            </div>
-          )}
-
-          {digestErrorMsg && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/25 text-rose-300 rounded-xl text-xs font-sans text-center animate-in slide-in-from-top-1">
-              ⚠️ {digestErrorMsg}
-            </div>
-          )}
-        </div>
-
-        {/* Delivery Logs history feed */}
-        <div className="border border-white/5 rounded-xl p-4 bg-slate-950/25 space-y-3 relative z-10">
-          <div className="flex items-center justify-between border-b border-white/5 pb-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-white/80">
-              <Clock className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Delivery History Logs ({emailLogs.length})</span>
-            </div>
-            {emailLogs.length > 0 && (
-              <button
-                onClick={handleClearEmailLogs}
-                className="text-[10px] text-white/40 hover:text-white transition-all underline font-sans cursor-pointer"
-              >
-                Clear History
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-2 max-h-[220px] overflow-y-auto">
-            {emailLogs.length === 0 ? (
-              <p className="text-[10px] text-white/35 italic py-3 text-center">No email delivery logs recorded yet.</p>
-            ) : (
-              emailLogs.map((log: any) => (
-                <div key={log.id} className="bg-white/5 border border-white/5 rounded-lg p-2.5 flex flex-col gap-2 font-sans transition-all hover:bg-white/10 text-left">
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <span className="font-bold text-white text-[11px] leading-tight block">{log.subject}</span>
-                      <span className="text-[9px] text-white/40 block mt-0.5">{log.timestamp} • {log.recipient}</span>
-                    </div>
-                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0 ${
-                      log.status === 'sent' 
-                        ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/25' 
-                        : log.status === 'simulated' 
-                        ? 'bg-blue-500/10 text-blue-300 border border-blue-500/25'
-                        : 'bg-rose-500/10 text-rose-300 border border-rose-500/25'
-                    }`}>
-                      {log.status}
-                    </span>
-                  </div>
-
-                  {log.error && (
-                    <p className="text-[9px] text-rose-400 bg-rose-500/5 p-1 rounded font-mono border border-rose-500/10">{log.error}</p>
-                  )}
-
-                  <div className="flex flex-wrap gap-2 pt-1 border-t border-white/5 mt-1 justify-end">
-                    {log.previewUrl && (
-                      <a
-                        href={log.previewUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-indigo-600/25 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/25 px-2 py-1 rounded text-[9px] font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <ExternalLink className="w-2.5 h-2.5" />
-                        <span>View Delivered Email Layout</span>
-                      </a>
-                    )}
-                    {log.htmlBody && (
-                      <button
-                        onClick={() => setSelectedLogForPreview(log)}
-                        className="bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 px-2 py-1 rounded text-[9px] font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Download className="w-2.5 h-2.5" />
-                        <span>Inspect Rendered Template</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
+            </button>
           </div>
         </div>
       </div>
